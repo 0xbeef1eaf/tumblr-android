@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { isNotFoundError } from '@/api/errors';
-import { useToggleLike } from '@/features/auth';
+import { useIsLiked, useToggleLike } from '@/features/auth';
 import { MasonryGallery } from '@/features/gallery';
 import { FilterRow, type KindFilter } from '@/features/search/FilterRow';
 import { MessageView } from '@/features/tag/MessageView';
@@ -28,6 +28,7 @@ export function BlogScreen({ name, tag }: BlogScreenProps) {
   const info = useBlogInfo(name);
   const paging = useBlogPosts(name, tag);
   const onLike = useToggleLike();
+  const isLiked = useIsLiked();
 
   const missing = isNotFoundError(info.error) || isNotFoundError(paging.error);
   const failed = !missing && paging.error != null && paging.items.length === 0;
@@ -74,6 +75,7 @@ export function BlogScreen({ name, tag }: BlogScreenProps) {
           header={header}
           kindFilter={kind}
           onLike={onLike}
+          isLiked={isLiked}
           emptyState={
             <MessageView
               icon="images-outline"

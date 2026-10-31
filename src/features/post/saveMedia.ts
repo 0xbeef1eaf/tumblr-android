@@ -16,7 +16,8 @@ export async function saveMediaToLibrary(urls: readonly string[]): Promise<numbe
   const cache = new Directory(Paths.cache);
   let saved = 0;
   for (const url of urls) {
-    const file = await File.downloadFileAsync(url, cache);
+    // Without `idempotent` a second save of the same URL rejects (DestinationAlreadyExists).
+    const file = await File.downloadFileAsync(url, cache, { idempotent: true });
     await Asset.create(file.uri);
     saved += 1;
   }

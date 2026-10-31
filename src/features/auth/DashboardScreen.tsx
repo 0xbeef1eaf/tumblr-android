@@ -6,12 +6,13 @@ import { spacing, useTheme } from '@/ui/theme';
 
 import { SignInPrompt } from './SignInPrompt';
 import { useDashboard } from './useDashboard';
-import { useToggleLike } from './useLike';
+import { useIsLiked, useToggleLike } from './useLike';
 import { useSession } from './useSession';
 
 function DashboardGallery() {
   const feed = useDashboard();
   const onLike = useToggleLike();
+  const isLiked = useIsLiked();
   return (
     <MasonryGallery
       items={feed.items}
@@ -22,6 +23,7 @@ function DashboardGallery() {
       onRefresh={() => void feed.refetch()}
       isRefetching={feed.isRefetching}
       onLike={onLike}
+      isLiked={isLiked}
       emptyState={
         <View style={styles.empty} testID="dashboard-empty">
           <Text variant="heading" align="center">

@@ -44,6 +44,8 @@ export interface MasonryGalleryProps {
   kindFilter?: KindFilter;
   /** Adds a Like row to the long-press sheet (WP4). */
   onLike?: (item: GalleryItem) => void;
+  /** Like state for the sheet's Like row (optimistic/bookmark aware; see `useIsLiked`). */
+  isLiked?: (item: GalleryItem) => boolean;
   testID?: string;
 }
 
@@ -62,6 +64,7 @@ export function MasonryGallery({
   emptyState = null,
   kindFilter = 'all',
   onLike,
+  isLiked,
   testID = 'masonry-gallery',
 }: MasonryGalleryProps) {
   const { colors } = useTheme();
@@ -176,7 +179,7 @@ export function MasonryGallery({
         }
         testID={`${testID}-list`}
       />
-      <QuickActionsSheet item={sheetItem} onClose={closeSheet} onLike={onLike} />
+      <QuickActionsSheet item={sheetItem} onClose={closeSheet} onLike={onLike} isLiked={isLiked} />
     </View>
   );
 }

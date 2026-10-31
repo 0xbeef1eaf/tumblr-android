@@ -13,6 +13,8 @@ export interface QuickActionsSheetProps {
   onClose: () => void;
   /** Wired by WP4; the Like row only renders when provided. */
   onLike?: (item: GalleryItem) => void;
+  /** Current like state (optimistic/bookmark aware); defaults to `item.liked`. */
+  isLiked?: (item: GalleryItem) => boolean;
 }
 
 interface Action {
@@ -30,7 +32,11 @@ export function openBlog(blogName: string) {
   router.push({ pathname: '/blog/[name]', params: { name: blogName } });
 }
 
-function buildActions(item: GalleryItem, onLike?: (item: GalleryItem) => void): Action[] {
+function buildActions(
+  item: GalleryItem,
+  onLike?: (item: GalleryItem) => void,
+  isLiked?: (item: GalleryItem) => boolean,
+): Action[] {
   const actions: Action[] = [
     { key: 'post', label: 'Open post', icon: 'document-text-outline', run: openPost },
     {
@@ -41,10 +47,11 @@ function buildActions(item: GalleryItem, onLike?: (item: GalleryItem) => void): 
     },
   ];
   if (onLike) {
+    const liked = isLiked ? isLiked(item) : item.liked === true;
     actions.push({
       key: 'like',
-      label: item.liked ? 'Unlike' : 'Like',
-      icon: item.liked ? 'heart' : 'heart-outline',
+      label: liked ? 'Unlike' : 'Like',
+      icon: liked ? 'heart' : 'heart-outline',
       run: onLike,
     });
   }
@@ -57,7 +64,7 @@ function buildActions(item: GalleryItem, onLike?: (item: GalleryItem) => void): 
 }
 
 /** Long-press quick actions for a tile (DESIGN §4). */
-export function QuickActionsSheet({ item, onClose, onLike }: QuickActionsSheetProps) {
+export function QuickActionsSheet({ item, onClose, onLike, isLiked }: QuickActionsSheetProps) {
   return (
     <Sheet visible={item !== null} onClose={onClose} testID="quick-actions">
       {item ? (
@@ -65,7 +72,7 @@ export function QuickActionsSheet({ item, onClose, onLike }: QuickActionsSheetPr
           <Text variant="label" tone="secondary" numberOfLines={1} style={styles.title}>
             {item.blogName}
           </Text>
-          {buildActions(item, onLike).map((action) => (
+          {buildActions(item, onLike, isLiked).map((action) => (
             <Pressable
               key={action.key}
               accessibilityLabel={action.label}

@@ -22,6 +22,7 @@ jest.mock(
 );
 jest.mock('@/features/auth', () => ({
   useToggleLike: () => jest.fn(),
+  useIsLiked: () => () => false,
   __esModule: true,
   useSession: () => ({ status: mockAuth.status }),
   get useFollow() {

@@ -1,4 +1,5 @@
-import { renderRouter, screen, fireEvent } from 'expo-router/testing-library';
+import { router } from 'expo-router';
+import { act, renderRouter, screen, fireEvent } from 'expo-router/testing-library';
 import { Share } from 'react-native';
 
 import { useAuthStore } from '@/features/auth/authStore';
@@ -40,6 +41,16 @@ describe('navigation shell', () => {
   it('/auth/callback finishes the auth session and goes home', async () => {
     await renderRouter('./app', { initialUrl: '/auth/callback' });
     expect(await screen.findByTestId('sign-in')).toBeTruthy();
+  });
+
+  it('/auth/callback returns to the screen sign-in started from', async () => {
+    await renderRouter('./app', { initialUrl: '/tag/photography' });
+    expect(await screen.findByTestId('share-tag')).toBeTruthy();
+    await act(async () => {
+      router.push('/auth/callback');
+    });
+    expect(await screen.findByTestId('share-tag')).toBeTruthy();
+    expect(screen).toHavePathname('/tag/photography');
   });
 
   it('/definitely/not/a/route → +not-found', async () => {

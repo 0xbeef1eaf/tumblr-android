@@ -12,11 +12,20 @@ jest.mock('expo-file-system', () => ({
     }
   },
   File: {
-    downloadFileAsync: jest.fn(async (url: string) => ({
-      uri: `file:///cache/${url.split('/').pop()}`,
-    })),
+    // Mirrors expo-file-system: an existing destination rejects unless `idempotent`.
+    downloadFileAsync: jest.fn(
+      async (url: string, _dest: unknown, options?: { idempotent?: boolean }) => {
+        const uri = `file:///cache/${url.split('/').pop()}`;
+        if (mockCached.has(uri) && !options?.idempotent) {
+          throw new Error('DestinationAlreadyExists');
+        }
+        mockCached.add(uri);
+        return { uri };
+      },
+    ),
   },
 }));
+const mockCached = new Set<string>();
 jest.mock('expo-media-library', () => ({
   requestPermissionsAsync: jest.fn(async () => ({ granted: true })),
   Asset: { create: jest.fn(async () => ({})) },
@@ -30,6 +39,12 @@ describe('saveMediaToLibrary', () => {
     expect(File.downloadFileAsync).toHaveBeenCalledTimes(2);
     expect(Asset.create).toHaveBeenNthCalledWith(1, 'file:///cache/a.jpg');
     expect(Asset.create).toHaveBeenNthCalledWith(2, 'file:///cache/b.mp4');
+  });
+
+  it('saves the same url twice (the cached download is overwritten)', async () => {
+    await expect(saveMediaToLibrary(['https://x/same.jpg'])).resolves.toBe(1);
+    await expect(saveMediaToLibrary(['https://x/same.jpg'])).resolves.toBe(1);
+    expect(Asset.create).toHaveBeenLastCalledWith('file:///cache/same.jpg');
   });
 
   it('throws SavePermissionError and downloads nothing when permission is denied', async () => {

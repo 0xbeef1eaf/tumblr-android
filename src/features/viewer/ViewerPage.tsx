@@ -56,7 +56,10 @@ function ViewerPageImpl({
     <View style={styles.fill}>
       <ZoomableImage
         uri={hidden && placeholder ? placeholder.url : full.url}
-        placeholderUri={placeholder && placeholder.url !== full.url ? placeholder.url : undefined}
+        // expo-image does not blur the placeholder: none while the item is hidden.
+        placeholderUri={
+          !hidden && placeholder && placeholder.url !== full.url ? placeholder.url : undefined
+        }
         aspectRatio={item.aspectRatio}
         size={size}
         active={active}

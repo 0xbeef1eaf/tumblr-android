@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { like, unlike } from '@/api/endpoints/user';
 import type { GalleryItem } from '@/domain/galleryItem';
@@ -20,6 +20,41 @@ interface LikeVariables {
   item: GalleryItem;
   /** The state to move to. */
   target: boolean;
+}
+
+interface LikeContext {
+  signedIn: boolean;
+  /** `interactionStore` optimistic overrides keyed by post id. */
+  overrides: Readonly<Record<string, boolean>>;
+  bookmarks: readonly Pick<GalleryItem, 'id'>[];
+}
+
+/** Signed in: optimistic override, else the server's `liked`. Guest: on-device bookmark. */
+export function resolveLiked(item: GalleryItem, ctx: LikeContext): boolean {
+  if (!ctx.signedIn) return ctx.bookmarks.some((b) => b.id === item.id);
+  return ctx.overrides[item.postId] ?? item.liked ?? false;
+}
+
+function currentLikeContext(): LikeContext {
+  return {
+    signedIn: useAuthStore.getState().status === 'signedIn',
+    overrides: useInteractionStore.getState().likes,
+    bookmarks: useBookmarksStore.getState().items,
+  };
+}
+
+/**
+ * `(item) => liked` for lists that cannot call `useLike` per item (e.g. the gallery's
+ * long-press sheet); re-renders when likes, overrides or bookmarks change.
+ */
+export function useIsLiked(): (item: GalleryItem) => boolean {
+  const signedIn = useAuthStore((s) => s.status === 'signedIn');
+  const overrides = useInteractionStore((s) => s.likes);
+  const bookmarks = useBookmarksStore((s) => s.items);
+  return useMemo(() => {
+    const ctx = { signedIn, overrides, bookmarks };
+    return (item: GalleryItem) => resolveLiked(item, ctx);
+  }, [signedIn, overrides, bookmarks]);
 }
 
 function tick(): void {
@@ -81,9 +116,9 @@ export function useToggleLike(): (item: GalleryItem) => void {
   return useCallback(
     (item: GalleryItem) => {
       tick();
-      if (useAuthStore.getState().status !== 'signedIn') return toggleBookmark(item);
-      const override = useInteractionStore.getState().likes[item.postId];
-      mutate({ item, target: !(override ?? item.liked ?? false) });
+      const ctx = currentLikeContext();
+      if (!ctx.signedIn) return toggleBookmark(item);
+      mutate({ item, target: !resolveLiked(item, ctx) });
     },
     [mutate],
   );

@@ -89,8 +89,6 @@ function GridSection() {
 function ContentSection() {
   const safeMode = useSettingsStore((s) => s.safeMode);
   const setSafeMode = useSettingsStore((s) => s.setSafeMode);
-  const gifs = useSettingsStore((s) => s.autoplayGifsOnCellular);
-  const setGifs = useSettingsStore((s) => s.setAutoplayGifsOnCellular);
   const video = useSettingsStore((s) => s.autoplayVideo);
   const setVideo = useSettingsStore((s) => s.setAutoplayVideo);
   return (
@@ -102,12 +100,8 @@ function ContentSection() {
         onValueChange={setSafeMode}
         testID="row-safe-mode"
       />
-      <SettingsSwitchRow
-        label="Autoplay GIFs on cellular"
-        value={gifs}
-        onValueChange={setGifs}
-        testID="row-autoplay-gifs"
-      />
+      {/* TODO(expo-network): "Autoplay GIFs on cellular" needs the network type; the
+          `autoplayGifsOnCellular` store key is kept so the row can return with that lib. */}
       <SettingsSwitchRow
         label="Autoplay video"
         value={video}

@@ -14,7 +14,7 @@ import {
 } from './auth.testutil';
 import { useBookmarksStore } from './bookmarksStore';
 import { useInteractionStore } from './interactionStore';
-import { useLike, useToggleLike } from './useLike';
+import { useIsLiked, useLike, useToggleLike } from './useLike';
 
 const item = makeTestItem();
 
@@ -137,5 +137,27 @@ describe('useLike (guest)', () => {
     });
     expect(result.current.liked).toBe(false);
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe('useIsLiked', () => {
+  it('signed in: follows optimistic overrides over the server flag', async () => {
+    signInForTest();
+    const { result } = await renderHook(() => useIsLiked(), { wrapper: createWrapper() });
+    expect(result.current({ ...item, liked: true })).toBe(true);
+    expect(result.current(item)).toBe(false);
+    await act(async () => {
+      useInteractionStore.getState().setLike(item.postId, true);
+    });
+    expect(result.current(item)).toBe(true);
+  });
+
+  it('guest: reflects on-device bookmarks', async () => {
+    const { result } = await renderHook(() => useIsLiked(), { wrapper: createWrapper() });
+    expect(result.current({ ...item, liked: true })).toBe(false);
+    await act(async () => {
+      useBookmarksStore.getState().toggle(item);
+    });
+    expect(result.current(item)).toBe(true);
   });
 });

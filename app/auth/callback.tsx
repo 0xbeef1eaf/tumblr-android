@@ -8,7 +8,8 @@ import { spacing, useTheme } from '@/ui/theme';
 
 /**
  * OAuth redirect target (tumblrgallery://auth/callback). expo-auth-session consumes the URL
- * itself; this screen only appears for the moment the deep link is routed, then goes home.
+ * itself; this screen only appears for the moment the deep link is routed, then returns to
+ * the screen sign-in started from (or home when there is no history).
  */
 export default function AuthCallbackScreen() {
   const { colors } = useTheme();
@@ -16,7 +17,8 @@ export default function AuthCallbackScreen() {
 
   useEffect(() => {
     maybeCompleteAuthSession();
-    router.replace('/');
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
   }, [router]);
 
   return (

@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { useToggleLike } from '@/features/auth';
+import { useIsLiked, useToggleLike } from '@/features/auth';
 import { MasonryGallery } from '@/features/gallery';
 import { MessageView } from '@/features/tag/MessageView';
 import { normalizeTag } from '@/features/tag/normalizeTag';
@@ -29,6 +29,7 @@ function Results({ tag }: { tag: string }) {
   const [kind, setKind] = useState<KindFilter>('all');
   const paging = useTaggedPosts(tag);
   const onLike = useToggleLike();
+  const isLiked = useIsLiked();
   const failed = paging.error != null && paging.items.length === 0 && !paging.isLoading;
   return (
     <View style={styles.flex} testID="search-results">
@@ -51,6 +52,7 @@ function Results({ tag }: { tag: string }) {
           isRefetching={paging.isRefetching}
           kindFilter={kind}
           onLike={onLike}
+          isLiked={isLiked}
           emptyState={<TagEmptyState tag={tag} />}
         />
       )}

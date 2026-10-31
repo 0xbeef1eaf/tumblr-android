@@ -134,8 +134,11 @@ describe('ViewerScreen', () => {
     useViewerStore.getState().open([makeItem({ id: '7:0', isSensitive: true })], 0);
     await render(<ViewerScreen />);
     expect(screen.getByTestId('viewer-image-7:0-img').props.blurRadius).toBe(30);
+    // No (unblurred) placeholder may flash while hidden.
+    expect(screen.getByTestId('viewer-image-7:0-img').props.placeholder).toBeUndefined();
     await fireEvent.press(screen.getByTestId('viewer-reveal'));
     expect(screen.getByTestId('viewer-image-7:0-img').props.blurRadius).toBeUndefined();
+    expect(screen.getByTestId('viewer-image-7:0-img').props.placeholder?.uri).toBeDefined();
   });
 
   it('closes the store when unmounted', async () => {

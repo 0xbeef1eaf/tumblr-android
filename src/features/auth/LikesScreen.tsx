@@ -5,7 +5,7 @@ import { Icon, Text } from '@/ui/primitives';
 import { radius, spacing, useTheme } from '@/ui/theme';
 
 import { SignInButton } from './SignInButton';
-import { useToggleLike } from './useLike';
+import { useIsLiked, useToggleLike } from './useLike';
 import { useLikes } from './useLikes';
 import { useSession } from './useSession';
 
@@ -31,6 +31,7 @@ export function LikesScreen() {
   const { status } = useSession();
   const feed = useLikes();
   const onLike = useToggleLike();
+  const isLiked = useIsLiked();
   const guest = status !== 'signedIn';
 
   return (
@@ -44,6 +45,7 @@ export function LikesScreen() {
         onRefresh={() => void feed.refetch()}
         isRefetching={feed.isRefetching}
         onLike={onLike}
+        isLiked={isLiked}
         header={guest ? <GuestHint /> : undefined}
         emptyState={
           <View style={styles.empty} testID="likes-empty">
