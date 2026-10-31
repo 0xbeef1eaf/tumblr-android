@@ -71,10 +71,10 @@ jest.mock('react-native-safe-area-context', () => {
   return mock.default;
 });
 
-jest.mock('react-native-reanimated', () => {
-  // The library ships an official jest mock.
-  return jest.requireActual('react-native-reanimated/mock');
-});
+jest.mock('react-native-reanimated', () =>
+  // Mapped to src/test/reanimatedModule.ts by jest.config.js.
+  jest.requireActual('react-native-reanimated/mock'),
+);
 
 jest.mock('react-native-gesture-handler', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -83,12 +83,49 @@ jest.mock('react-native-gesture-handler', () => {
     React.createElement(React.Fragment, null, children);
   const chainable = (): Record<string, unknown> =>
     new Proxy({}, { get: () => () => chainable() }) as Record<string, unknown>;
+  // v3 hook API: return the config so tests can invoke callbacks directly.
+  const hook = (kind: string) => (config: Record<string, unknown>) => ({ kind, config });
+  const compose = (...gestures: unknown[]) => ({ gestures });
   return {
     GestureHandlerRootView: (props: Record<string, unknown>) => React.createElement(View, props),
     GestureDetector: passthrough,
     Gesture: new Proxy({}, { get: () => () => chainable() }),
+    usePanGesture: hook('pan'),
+    usePinchGesture: hook('pinch'),
+    useTapGesture: hook('tap'),
+    useSimultaneousGestures: compose,
+    useExclusiveGestures: compose,
+    useCompetingGestures: compose,
     State: {},
     Directions: {},
+  };
+});
+
+jest.mock('react-native-worklets', () => ({
+  scheduleOnRN: (fn: (...args: unknown[]) => void, ...args: unknown[]) => fn(...args),
+}));
+
+jest.mock('react-native-pager-view', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { View } = jest.requireActual<typeof import('react-native')>('react-native');
+  const PagerView = (props: Record<string, unknown> & { children?: React.ReactNode }) =>
+    React.createElement(View, { testID: props.testID as string | undefined }, props.children);
+  return { __esModule: true, default: PagerView };
+});
+
+jest.mock('expo-video', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { View } = jest.requireActual<typeof import('react-native')>('react-native');
+  const player = { play: jest.fn(), pause: jest.fn(), muted: false, loop: false };
+  return {
+    useVideoPlayer: (_source: unknown, setup?: (p: typeof player) => void) => {
+      const [p] = React.useState(() => {
+        setup?.(player);
+        return player;
+      });
+      return p;
+    },
+    VideoView: (props: Record<string, unknown>) => React.createElement(View, props),
   };
 });
 

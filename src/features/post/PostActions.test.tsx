@@ -75,7 +75,9 @@ describe('PostActions', () => {
   });
 
   it('shares the post link and opens it in the browser', async () => {
-    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction', activityType: undefined });
+    const share = jest
+      .spyOn(Share, 'share')
+      .mockResolvedValue({ action: 'sharedAction', activityType: undefined });
     await renderWithProviders(<PostActions item={item} mediaUrls={urls} />, { client });
     await fireEvent.press(screen.getByRole('button', { name: 'Share' }));
     expect(share).toHaveBeenCalledWith({ message: item.postUrl, url: item.postUrl });

@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Share, StyleSheet, View } from 'react-native';
 
+import { useToggleLike } from '@/features/auth';
 import { MasonryGallery } from '@/features/gallery';
 import { FilterRow, type KindFilter } from '@/features/search/FilterRow';
 import { Icon, Pressable } from '@/ui/primitives';
@@ -26,6 +27,7 @@ export function TagScreen({ tag: rawTag }: TagScreenProps) {
   const tag = normalizeTag(rawTag);
   const [kind, setKind] = useState<KindFilter>('all');
   const paging = useTaggedPosts(tag);
+  const onLike = useToggleLike();
 
   const share = useCallback(() => {
     const url = tagShareUrl(tag);
@@ -66,6 +68,7 @@ export function TagScreen({ tag: rawTag }: TagScreenProps) {
           onRefresh={() => void paging.refetch()}
           isRefetching={paging.isRefetching}
           kindFilter={kind}
+          onLike={onLike}
           emptyState={<TagEmptyState tag={tag} />}
         />
       )}

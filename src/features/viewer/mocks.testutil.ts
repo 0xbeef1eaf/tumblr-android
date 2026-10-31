@@ -124,14 +124,15 @@ export function expoVideoMock() {
 }
 
 export function expoRouterMock() {
-  return {
-    router: {
-      push: jest.fn(),
-      back: jest.fn(),
-      replace: jest.fn(),
-      canGoBack: jest.fn(() => true),
-    },
+  const router = {
+    push: jest.fn(),
+    back: jest.fn(),
+    replace: jest.fn(),
+    canGoBack: jest.fn(() => true),
   };
+  // `useNavigation()` delegates to the same spies so tests can assert on `router.back`.
+  const navigation = { canGoBack: () => router.canGoBack(), goBack: () => router.back() };
+  return { router, useNavigation: () => navigation };
 }
 
 export function mediaMocks() {

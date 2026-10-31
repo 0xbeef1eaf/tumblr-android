@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { AuthProvider } from '@/features/auth';
 import { persistOptions, queryClient } from '@/lib/queryClient';
 import { navigationTheme } from '@/ui/navigationTheme';
 import { ToastHost } from '@/ui/primitives';
@@ -20,33 +21,35 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
-        <ThemeProvider value={navTheme}>
-          <StatusBar style={theme.dark ? 'light' : 'dark'} />
-          <Stack
-            screenOptions={{
-              headerTintColor: theme.colors.text,
-              headerStyle: { backgroundColor: theme.colors.background },
-              contentStyle: { backgroundColor: theme.colors.background },
-            }}
-          >
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="tag/[tag]" options={{ title: 'Tag' }} />
-            <Stack.Screen name="blog/[name]" options={{ title: 'Blog' }} />
-            <Stack.Screen name="post/[blog]/[id]" options={{ title: 'Post' }} />
-            <Stack.Screen
-              name="viewer"
-              options={{
-                presentation: 'transparentModal',
-                headerShown: false,
-                animation: 'fade',
-                contentStyle: { backgroundColor: 'transparent' },
+        <AuthProvider>
+          <ThemeProvider value={navTheme}>
+            <StatusBar style={theme.dark ? 'light' : 'dark'} />
+            <Stack
+              screenOptions={{
+                headerTintColor: theme.colors.text,
+                headerStyle: { backgroundColor: theme.colors.background },
+                contentStyle: { backgroundColor: theme.colors.background },
               }}
-            />
-            <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
-            <Stack.Screen name="+not-found" options={{ title: 'Not found' }} />
-          </Stack>
-          <ToastHost />
-        </ThemeProvider>
+            >
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="tag/[tag]" options={{ title: 'Tag' }} />
+              <Stack.Screen name="blog/[name]" options={{ title: 'Blog' }} />
+              <Stack.Screen name="post/[blog]/[id]" options={{ title: 'Post' }} />
+              <Stack.Screen
+                name="viewer"
+                options={{
+                  presentation: 'transparentModal',
+                  headerShown: false,
+                  animation: 'fade',
+                  contentStyle: { backgroundColor: 'transparent' },
+                }}
+              />
+              <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+              <Stack.Screen name="+not-found" options={{ title: 'Not found' }} />
+            </Stack>
+            <ToastHost />
+          </ThemeProvider>
+        </AuthProvider>
       </PersistQueryClientProvider>
     </GestureHandlerRootView>
   );

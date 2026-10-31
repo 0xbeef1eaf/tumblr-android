@@ -13,6 +13,10 @@ module.exports = {
     '/node_modules/react-native-reanimated/plugin/',
     '/node_modules/@react-native/babel-preset/',
   ],
+  moduleNameMapper: {
+    // See src/test/reanimatedModule.ts: the official Reanimated mock cannot load under Jest.
+    '^react-native-reanimated/mock$': '<rootDir>/src/test/reanimatedModule.ts',
+  },
   clearMocks: true,
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',

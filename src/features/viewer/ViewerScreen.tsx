@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { PixelRatio, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -33,8 +33,11 @@ export interface ViewerScreenProps {
   renderLike?: (item: GalleryItem) => ReactNode;
 }
 
-function leave() {
-  if (router.canGoBack()) router.back();
+type Nav = { canGoBack: () => boolean; goBack: () => void };
+
+/** The navigation prop works during the first render, unlike the imperative `router`. */
+function leave(navigation: Nav) {
+  if (navigation.canGoBack()) navigation.goBack();
   else router.replace('/');
 }
 
@@ -51,11 +54,13 @@ export function prefetchNeighbours(items: GalleryItem[], index: number, screenWi
 export function ViewerScreen({ renderLike }: ViewerScreenProps) {
   const isOpen = useViewerStore((s) => s.isOpen && s.items.length > 0);
 
+  const navigation = useNavigation<Nav>();
+
   // Opened without a gallery (deep link, process restore): nothing to show, go back.
   useEffect(() => {
-    if (!useViewerStore.getState().isOpen) leave();
+    if (!useViewerStore.getState().isOpen) leave(navigation);
     return () => useViewerStore.getState().close();
-  }, []);
+  }, [navigation]);
 
   if (!isOpen) return <View style={styles.root} testID="viewer-empty" />;
   return <ViewerContent renderLike={renderLike} />;
@@ -66,6 +71,7 @@ function ViewerContent({ renderLike }: ViewerScreenProps) {
   const index = useViewerStore((s) => s.index);
   const setIndex = useViewerStore((s) => s.setIndex);
   const safeMode = useSettingsStore((s) => s.safeMode);
+  const navigation = useNavigation<Nav>();
   const columns = useSettingsStore((s) => s.columns);
   const { width, height } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
@@ -91,8 +97,8 @@ function ViewerContent({ renderLike }: ViewerScreenProps) {
   }, [index]);
 
   const dismiss = useCallback(() => {
-    leave();
-  }, []);
+    leave(navigation);
+  }, [navigation]);
 
   const { gesture, contentStyle, backdropStyle } = useDismissGesture({
     enabled: !zoomed,
@@ -116,14 +122,20 @@ function ViewerContent({ renderLike }: ViewerScreenProps) {
   const toggleChrome = useCallback(() => setChromeVisible((v) => !v), []);
 
   /** Chrome navigation leaves the modal first so the target pushes onto the main stack. */
-  const goToBlog = useCallback((item: GalleryItem) => {
-    leave();
-    openBlog(item.blogName);
-  }, []);
-  const goToPost = useCallback((item: GalleryItem) => {
-    leave();
-    openPost(item);
-  }, []);
+  const goToBlog = useCallback(
+    (item: GalleryItem) => {
+      leave(navigation);
+      openBlog(item.blogName);
+    },
+    [navigation],
+  );
+  const goToPost = useCallback(
+    (item: GalleryItem) => {
+      leave(navigation);
+      openPost(item);
+    },
+    [navigation],
+  );
   const share = useCallback((item: GalleryItem) => void shareItem(item), []);
   const save = useCallback((item: GalleryItem) => void saveItem(item), []);
 

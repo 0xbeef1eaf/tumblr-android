@@ -20,3 +20,4 @@ export { useLikes } from './useLikes';
 export { useReblog, type ReblogInput, type ReblogState } from './useReblog';
 export { useSession, type Session } from './useSession';
 export { useUser } from './useUser';
+export { LikeButton } from './LikeButton';

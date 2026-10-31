@@ -21,6 +21,7 @@ jest.mock(
   () => jest.requireActual('@/features/tag/galleryMock.testutil').galleryMock,
 );
 jest.mock('@/features/auth', () => ({
+  useToggleLike: () => jest.fn(),
   __esModule: true,
   useSession: () => ({ status: mockAuth.status }),
   get useFollow() {
