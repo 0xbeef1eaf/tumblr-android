@@ -1,6 +1,5 @@
-import { PlaceholderScreen } from '@/ui/PlaceholderScreen';
+import { SearchScreen } from '@/features/search';
 
-/** Search tab — placeholder; filled in by a later work package (see docs/PLAN.md). */
-export default function SearchScreen() {
-  return <PlaceholderScreen route="(tabs)/search" />;
+export default function SearchRoute() {
+  return <SearchScreen />;
 }

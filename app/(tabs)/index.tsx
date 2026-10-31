@@ -1,6 +1,5 @@
-import { PlaceholderScreen } from '@/ui/PlaceholderScreen';
+import { ExploreScreen } from '@/features/explore';
 
-/** Explore tab — placeholder; filled in by a later work package (see docs/PLAN.md). */
-export default function ExploreScreen() {
-  return <PlaceholderScreen route="(tabs)/index" />;
+export default function ExploreRoute() {
+  return <ExploreScreen />;
 }

@@ -1,9 +1,8 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { PlaceholderScreen } from '@/ui/PlaceholderScreen';
+import { TagScreen } from '@/features/tag';
 
-/** Tag gallery — placeholder (WP3). */
-export default function TagScreen() {
+export default function TagRoute() {
   const { tag } = useLocalSearchParams<{ tag: string }>();
-  return <PlaceholderScreen route="tag/[tag]" detail={`#${tag ?? ''}`} />;
+  return <TagScreen tag={tag ?? ''} />;
 }
