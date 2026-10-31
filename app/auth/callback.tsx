@@ -1,6 +1,34 @@
-import { PlaceholderScreen } from '@/ui/PlaceholderScreen';
+import { useRouter } from 'expo-router';
+import { maybeCompleteAuthSession } from 'expo-web-browser';
+import { useEffect } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-/** OAuth redirect target (tumblrgallery://auth/callback) — placeholder (WP4). */
+import { Text } from '@/ui/primitives';
+import { spacing, useTheme } from '@/ui/theme';
+
+/**
+ * OAuth redirect target (tumblrgallery://auth/callback). expo-auth-session consumes the URL
+ * itself; this screen only appears for the moment the deep link is routed, then goes home.
+ */
 export default function AuthCallbackScreen() {
-  return <PlaceholderScreen route="auth/callback" detail="Finishing sign-in…" />;
+  const { colors } = useTheme();
+  const router = useRouter();
+
+  useEffect(() => {
+    maybeCompleteAuthSession();
+    router.replace('/');
+  }, [router]);
+
+  return (
+    <View style={[styles.root, { backgroundColor: colors.background }]} testID="auth-callback">
+      <ActivityIndicator color={colors.accent} />
+      <Text variant="caption" tone="secondary">
+        Finishing sign-in…
+      </Text>
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+});

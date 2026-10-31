@@ -38,7 +38,7 @@ describe('authStore', () => {
 });
 
 describe('useSession', () => {
-  it('returns guest in WP1', async () => {
+  it('returns guest by default', async () => {
     const { result } = await renderHook(() => useSession());
     expect(result.current.status).toBe('guest');
     expect(result.current.user).toBeNull();
@@ -54,13 +54,5 @@ describe('useSession', () => {
       await result.current.signOut();
     });
     expect(result.current.status).toBe('guest');
-  });
-
-  it('signIn is a stub that tells the user (WP4 implements it)', async () => {
-    const { result } = await renderHook(() => useSession());
-    await act(async () => {
-      await result.current.signIn();
-    });
-    expect(useToastStore.getState().toasts[0]?.message).toMatch(/coming soon/i);
   });
 });

@@ -10,6 +10,9 @@ import {
   createMemoryTokenStore,
   exchangeCode,
   isExpiring,
+  OAuthError,
+  parseAuthorizationResponse,
+  AUTH_DISCOVERY,
   refreshToken,
   secureTokenStore,
   tokenSetFromResponse,
@@ -154,5 +157,33 @@ describe('token stores', () => {
     await expect(store.load()).resolves.toEqual(tokens);
     await store.clear();
     await expect(store.load()).resolves.toBeNull();
+  });
+});
+
+describe('parseAuthorizationResponse', () => {
+  it('returns the code when state matches', () => {
+    expect(parseAuthorizationResponse({ code: 'abc', state: 's1' }, 's1')).toBe('abc');
+  });
+
+  it.each([
+    ['state_mismatch', { code: 'abc', state: 'other' }],
+    ['state_mismatch', { code: 'abc' }],
+    ['access_denied', { error: 'access_denied', state: 's1' }],
+    ['provider_error', { error: 'server_error', error_description: 'boom', state: 's1' }],
+    ['missing_code', { state: 's1' }],
+  ] as const)('throws %s', (code, params) => {
+    expect(() => parseAuthorizationResponse(params, 's1')).toThrow(OAuthError);
+    try {
+      parseAuthorizationResponse(params, 's1');
+    } catch (error) {
+      expect((error as OAuthError).code).toBe(code);
+    }
+  });
+
+  it('exposes the Tumblr discovery document', () => {
+    expect(AUTH_DISCOVERY).toEqual({
+      authorizationEndpoint: 'https://www.tumblr.com/oauth2/authorize',
+      tokenEndpoint: 'https://api.tumblr.com/v2/oauth2/token',
+    });
   });
 });

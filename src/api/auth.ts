@@ -7,15 +7,20 @@ import { userAgent } from './client';
 import { ApiError } from './errors';
 
 /**
- * OAuth2 plumbing. WP1 provides the token store and the exchange/refresh HTTP calls.
- * TODO(WP4): interactive authorize flow (expo-auth-session), proactive refresh with a
- * single in-flight promise, and a `TokenProvider` passed to `setTokenProvider()`.
+ * OAuth2 plumbing: token store, exchange/refresh HTTP calls and authorization-response
+ * validation. The interactive flow lives in `features/auth/oauth.ts` (expo-auth-session) and
+ * the `TokenProvider` in `features/auth/tokenProvider.ts`.
  */
 const logger = createLogger('auth');
 
 export const AUTHORIZE_URL = 'https://www.tumblr.com/oauth2/authorize';
 export const TOKEN_URL = 'https://api.tumblr.com/v2/oauth2/token';
 export const OAUTH_SCOPES = ['basic', 'write', 'offline_access'] as const;
+/** Discovery document for `expo-auth-session` (Tumblr has no `.well-known` endpoint). */
+export const AUTH_DISCOVERY = {
+  authorizationEndpoint: AUTHORIZE_URL,
+  tokenEndpoint: TOKEN_URL,
+} as const;
 export const REDIRECT_URI = 'tumblrgallery://auth/callback';
 export const TOKEN_STORE_KEY = 'tumblr.oauth.tokens';
 
@@ -203,4 +208,36 @@ export async function refreshToken(rt: string, deps: AuthDeps = {}): Promise<Tok
   const tokens = await postGrant({ grant_type: 'refresh_token', refresh_token: rt }, deps);
   // Tumblr may omit a rotated refresh token; keep the old one in that case.
   return { ...tokens, refreshToken: tokens.refreshToken ?? rt };
+}
+
+export class OAuthError extends Error {
+  readonly code: 'state_mismatch' | 'access_denied' | 'missing_code' | 'provider_error';
+
+  constructor(code: OAuthError['code'], message: string) {
+    super(message);
+    this.name = 'OAuthError';
+    this.code = code;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+/**
+ * Validate the query params Tumblr redirected back with. `state` must match the value sent
+ * (CSRF protection); an `error` param or a missing `code` is surfaced as an `OAuthError`.
+ */
+export function parseAuthorizationResponse(
+  params: Record<string, string | undefined>,
+  expectedState: string,
+): string {
+  if (params.state !== expectedState) {
+    throw new OAuthError('state_mismatch', 'Sign-in response did not match the request');
+  }
+  if (params.error) {
+    throw new OAuthError(
+      params.error === 'access_denied' ? 'access_denied' : 'provider_error',
+      params.error_description ?? params.error,
+    );
+  }
+  if (!params.code) throw new OAuthError('missing_code', 'Tumblr did not return a code');
+  return params.code;
 }

@@ -1,6 +1,4 @@
-import { PlaceholderScreen } from '@/ui/PlaceholderScreen';
+import { DashboardScreen } from '@/features/auth';
 
-/** Dashboard tab — placeholder; filled in by a later work package (see docs/PLAN.md). */
-export default function DashboardScreen() {
-  return <PlaceholderScreen route="(tabs)/dashboard" />;
-}
+/** Dashboard tab: signed-in gallery, sign-in prompt for guests. */
+export default DashboardScreen;

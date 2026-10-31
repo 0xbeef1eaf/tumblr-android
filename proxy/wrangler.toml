@@ -1,0 +1,10 @@
+name = "tumblr-gallery-token-proxy"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+
+# Secrets are NOT stored here. Set them once with:
+#   npx wrangler secret put TUMBLR_CLIENT_SECRET
+#   npx wrangler secret put TUMBLR_CLIENT_ID        # optional; falls back to the app's client_id
+[vars]
+# Exact redirect URIs the app may send (comma separated). Recommended.
+ALLOWED_REDIRECT_URIS = "tumblrgallery://auth/callback"

@@ -1,6 +1,4 @@
-import { PlaceholderScreen } from '@/ui/PlaceholderScreen';
+import { LikesScreen } from '@/features/auth';
 
-/** Likes tab — placeholder; filled in by a later work package (see docs/PLAN.md). */
-export default function LikesScreen() {
-  return <PlaceholderScreen route="(tabs)/likes" />;
-}
+/** Likes tab: Tumblr likes, or local bookmarks for guests. */
+export default LikesScreen;
