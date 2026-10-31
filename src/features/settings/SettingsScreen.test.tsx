@@ -1,9 +1,10 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 
 import { useSession, type Session } from '@/features/auth';
 import { useSearchHistoryStore } from '@/features/search';
+import { renderWithProviders as render } from '@/test/render';
 import { useToastStore } from '@/ui/primitives';
 
 import { API_DOCS_URL, API_TERMS_URL, SettingsScreen } from './SettingsScreen';
@@ -12,6 +13,7 @@ import { useSettingsStore } from './settingsStore';
 jest.mock('@/features/auth', () => ({ useSession: jest.fn() }));
 jest.mock('@/features/search', () => ({ useSearchHistoryStore: jest.fn() }));
 jest.mock('expo-linking', () => ({ openURL: jest.fn(async () => true) }));
+jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn(async () => true) }));
 
 const mockedUseSession = jest.mocked(useSession);
 const mockedHistoryStore = jest.mocked(useSearchHistoryStore);
@@ -157,7 +159,7 @@ describe('SettingsScreen', () => {
   it('renders every section', async () => {
     await render(<SettingsScreen />);
     await act(async () => {});
-    for (const id of ['account', 'grid', 'content', 'storage', 'about']) {
+    for (const id of ['tumblr-api', 'account', 'grid', 'content', 'storage', 'about']) {
       expect(screen.getByTestId(`section-${id}`)).toBeTruthy();
     }
   });

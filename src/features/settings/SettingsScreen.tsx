@@ -12,6 +12,7 @@ import { ConfirmSheet } from './ConfirmSheet';
 import { SettingsRow, SettingsSwitchRow } from './SettingsRow';
 import { SettingsSection } from './SettingsSection';
 import { useSettingsStore } from './settingsStore';
+import { TumblrApiSection } from './TumblrApiSection';
 import { useStorageActions, type StorageAction } from './useStorageActions';
 
 export const API_TERMS_URL = 'https://www.tumblr.com/docs/en/api_agreement';
@@ -153,6 +154,7 @@ export function SettingsScreen() {
         <Text variant="title" accessibilityRole="header" style={styles.heading}>
           Settings
         </Text>
+        <TumblrApiSection />
         <AccountSection />
         <GridSection />
         <ContentSection />
