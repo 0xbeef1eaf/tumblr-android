@@ -1,9 +1,12 @@
+import { onlineManager } from '@tanstack/react-query';
+import { act, renderHook } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
 import { z } from 'zod';
 
 import { apiFetch, configureApiClient } from '@/api/client';
 import { ApiError, MissingCredentialsError } from '@/api/errors';
 import { API, fixtures, rateLimited, server } from '@/test/msw';
+import { setMockNetworkState } from '@/test/network';
 
 import {
   createQueryClient,
@@ -13,6 +16,7 @@ import {
   persistOptions,
   shouldPersistQuery,
   shouldRetry,
+  useSyncOnlineManager,
 } from './queryClient';
 import { createMemoryStore } from './storage';
 
@@ -84,5 +88,18 @@ describe('installRateLimitToast', () => {
     expect(show).toHaveBeenCalledWith('Tumblr is asking us to slow down — retrying in 3s');
     uninstall();
     restoreSleep();
+  });
+});
+
+describe('useSyncOnlineManager', () => {
+  afterEach(() => onlineManager.setOnline(true));
+
+  it('pauses react-query offline and resumes on reconnect', async () => {
+    await renderHook(() => useSyncOnlineManager());
+    expect(onlineManager.isOnline()).toBe(true);
+    await act(async () => setMockNetworkState('offline'));
+    expect(onlineManager.isOnline()).toBe(false);
+    await act(async () => setMockNetworkState('cellular'));
+    expect(onlineManager.isOnline()).toBe(true);
   });
 });

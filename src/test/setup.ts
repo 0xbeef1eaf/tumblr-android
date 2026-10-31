@@ -1,6 +1,7 @@
 import { credentialsStore } from '@/api/credentials';
 
 import { server } from './msw';
+import { resetMockNetworkState } from './network';
 
 /* ---------- native module mocks ---------- */
 
@@ -131,12 +132,19 @@ jest.mock('expo-video', () => {
   };
 });
 
+// In-memory network state; tests flip it with `setMockNetworkState` from src/test/network.ts.
+jest.mock(
+  'expo-network',
+  () => jest.requireActual<typeof import('./network')>('./network').expoNetworkMock,
+);
+
 /* ---------- msw ---------- */
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 // Every test starts with a user-entered consumer key (no secret), so guest requests carry
 // `api_key=test`. Tests for other credential states clear or replace it explicitly.
 beforeEach(async () => {
+  resetMockNetworkState();
   await credentialsStore.save({ consumerKey: 'test' });
 });
 afterEach(() => server.resetHandlers());

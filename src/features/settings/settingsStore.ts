@@ -11,7 +11,7 @@ export interface Settings {
   columns: GridColumns;
   showBlogName: boolean;
   safeMode: boolean;
-  /** Not read yet: hidden in Settings until a network-type lib (expo-network) is added. */
+  /** Off: gallery GIFs show their first frame on mobile data (`useVisibleGifs`). */
   autoplayGifsOnCellular: boolean;
   autoplayVideo: boolean;
 }

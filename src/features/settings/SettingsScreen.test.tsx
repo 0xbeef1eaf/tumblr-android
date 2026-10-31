@@ -47,6 +47,7 @@ describe('SettingsScreen', () => {
     const toggles: [string, keyof ReturnType<typeof useSettingsStore.getState>, boolean][] = [
       ['Show blog name', 'showBlogName', false],
       ['Safe mode', 'safeMode', false],
+      ['Autoplay GIFs on cellular', 'autoplayGifsOnCellular', false],
       ['Autoplay video', 'autoplayVideo', true],
     ];
     for (const [label, key, next] of toggles) {
@@ -55,9 +56,10 @@ describe('SettingsScreen', () => {
     }
   });
 
-  it('hides the unimplemented "Autoplay GIFs on cellular" row', async () => {
+  it('shows "Autoplay GIFs on cellular" in Content, on by default', async () => {
     await render(<SettingsScreen />);
-    expect(screen.queryByLabelText('Autoplay GIFs on cellular')).toBeNull();
+    const row = screen.getByLabelText('Autoplay GIFs on cellular');
+    expect(row.props.accessibilityState.checked).toBe(true);
   });
 
   it('shows current switch values', async () => {

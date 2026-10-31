@@ -6,8 +6,14 @@ import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AuthProvider } from '@/features/auth';
-import { installRateLimitToast, persistOptions, queryClient } from '@/lib/queryClient';
+import {
+  installRateLimitToast,
+  persistOptions,
+  queryClient,
+  useSyncOnlineManager,
+} from '@/lib/queryClient';
 import { navigationTheme } from '@/ui/navigationTheme';
+import { OfflineBanner } from '@/ui/OfflineBanner';
 import { toast, ToastHost } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 
@@ -19,6 +25,7 @@ export const unstable_settings = { anchor: '(tabs)' };
 export default function RootLayout() {
   const theme = useTheme();
   const navTheme = useMemo(() => navigationTheme(theme), [theme]);
+  useSyncOnlineManager();
 
   return (
     <GestureHandlerRootView style={styles.root}>
@@ -26,6 +33,8 @@ export default function RootLayout() {
         <AuthProvider>
           <ThemeProvider value={navTheme}>
             <StatusBar style={theme.dark ? 'light' : 'dark'} />
+            {/* In flow (not overlaid) so it never covers headers or search bars. */}
+            <OfflineBanner />
             <Stack
               screenOptions={{
                 headerTintColor: theme.colors.text,

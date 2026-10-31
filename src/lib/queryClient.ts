@@ -1,11 +1,13 @@
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
-import { QueryClient, type Query } from '@tanstack/react-query';
+import { onlineManager, QueryClient, type Query } from '@tanstack/react-query';
 import type { PersistQueryClientOptions } from '@tanstack/react-query-persist-client';
+import { useEffect } from 'react';
 
 import { configureApiClient } from '@/api/client';
 import { ApiError, MissingCredentialsError } from '@/api/errors';
 
 import { env } from './env';
+import { useNetworkState } from './network';
 import { queryCacheStorage, type KeyValueStore } from './storage';
 
 export const MINUTE = 60_000;
@@ -77,3 +79,15 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
   buster: env.appVersion,
   dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
 };
+
+/**
+ * Feed expo-network's connectivity to react-query (call once, in the root layout): offline
+ * queries pause instead of failing and refetch on reconnect; persisted pages stay readable.
+ * Waits for the first reading so a cold start never flashes offline.
+ */
+export function useSyncOnlineManager(): void {
+  const { isConnected, isLoading } = useNetworkState();
+  useEffect(() => {
+    if (!isLoading) onlineManager.setOnline(isConnected);
+  }, [isConnected, isLoading]);
+}

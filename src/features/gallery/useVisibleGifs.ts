@@ -2,12 +2,21 @@ import type { FlashListProps, ViewToken } from '@shopify/flash-list';
 import { useCallback, useState } from 'react';
 
 import type { GalleryItem } from '@/domain/galleryItem';
+import { useSetting } from '@/features/settings/settingsStore';
+import { useNetworkState } from '@/lib/network';
 
 import { pickAnimatingGifs } from './layout';
 
 type ViewabilityConfig = NonNullable<FlashListProps<GalleryItem>['viewabilityConfig']>;
 
 export const GIF_VIEWABILITY: ViewabilityConfig = { itemVisiblePercentThreshold: 30 };
+
+const NO_GIFS: ReadonlySet<string> = new Set();
+
+/** Settings → "Autoplay GIFs on cellular" (DESIGN §3.8): off means posters only on mobile data. */
+export function gifAutoplayAllowed(isCellular: boolean, autoplayOnCellular: boolean): boolean {
+  return !isCellular || autoplayOnCellular;
+}
 
 function sameSet(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
   if (a.size !== b.size) return false;
@@ -17,9 +26,13 @@ function sameSet(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
 
 /**
  * Tracks which visible GIFs may animate (≤ 6, ARCHITECTURE §8). Feed `onViewableItemsChanged`
- * to FlashList; off-screen tiles get `autoplay={false}`.
+ * to FlashList; off-screen tiles get `autoplay={false}`. On cellular with the autoplay setting
+ * off nothing animates: tiles show the first frame plus the GIF badge, the viewer still plays.
  */
 export function useVisibleGifs() {
+  const { isCellular } = useNetworkState();
+  const autoplayOnCellular = useSetting('autoplayGifsOnCellular');
+  const allowed = gifAutoplayAllowed(isCellular, autoplayOnCellular);
   const [animating, setAnimating] = useState<ReadonlySet<string>>(() => new Set());
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken<GalleryItem>[] }) => {
@@ -31,5 +44,5 @@ export function useVisibleGifs() {
     },
     [],
   );
-  return { animating, onViewableItemsChanged };
+  return { animating: allowed ? animating : NO_GIFS, onViewableItemsChanged };
 }

@@ -14,6 +14,7 @@
 | Lists | `@shopify/flash-list` v2 (`masonry` prop) | Recycling masonry grid |
 | Gestures/anim | `react-native-gesture-handler` v3, `react-native-reanimated` v4 | Pinch-zoom viewer, swipe-to-dismiss |
 | Auth | `expo-auth-session` + `expo-web-browser` | OAuth2 authorization-code flow |
+| Network state | `expo-network` | Offline banner, react-query `onlineManager`, "Autoplay GIFs on cellular" |
 | Validation | `zod` v4 | Parse API responses at the boundary; fixtures double as contract tests |
 | Tests | `jest-expo`, `@testing-library/react-native`, `msw` v2 | Unit + component tests against recorded fixtures |
 | Lint | `eslint-config-expo`, `prettier` | |
@@ -61,9 +62,11 @@ src/
     explore/                 StarterTags, RecentChips, FollowingRow
   ui/
     theme.ts                 tokens; useTheme(); light/dark
+    OfflineBanner.tsx        DESIGN §7 offline banner (root layout, above the Stack)
     primitives/              Text, Pressable, Chip, Sheet, Toast, Icon (lucide-react-native or @expo/vector-icons)
   lib/
-    queryClient.ts           QueryClient + persister
+    queryClient.ts           QueryClient + persister + useSyncOnlineManager (expo-network → onlineManager)
+    network.ts               useNetworkState(): { isConnected, isCellular, isLoading } over expo-network
     storage.ts               MMKV instance + zustand storage adapter
     env.ts                   optional EXPO_PUBLIC_* fallbacks: read + validation
     log.ts
@@ -228,7 +231,14 @@ The secret is theirs, on their own device, so the direct exchange is fine in eve
 - Images: `expo-image` `cachePolicy="memory-disk"`, `recyclingKey=item.id`,
   `transition={200}`, `placeholder={{ backgroundColor }}`; grid variants ≤ 640 px.
 - FlashList `estimatedItemSize` from median aspect; `drawDistance` 2 screens.
-- GIFs: at most 6 animating on screen; off-screen tiles get `autoplay={false}`.
+- GIFs: at most 6 animating on screen; off-screen tiles get `autoplay={false}`. On
+  cellular with "Autoplay GIFs on cellular" off, no tile animates (first frame + `GIF`
+  badge); the viewer still plays the GIF on tap.
+- Network state: one app-lifetime `expo-network` listener (`src/lib/network.ts`) shared by
+  every `useNetworkState()` via `useSyncExternalStore`; only changes to
+  `isConnected`/`isCellular` re-render. The root layout feeds it to react-query's
+  `onlineManager`, so offline queries pause (no retry storm) and resume on reconnect,
+  while persisted pages stay browsable.
 - Viewer prefetches ±1 page with `Image.prefetch`.
 - Avoid re-renders: tiles memoised on `item.id` + `columnWidth` + `safeMode`.
 
