@@ -1,5 +1,8 @@
 # Token-exchange proxy
 
+> **Optional.** The app now uses the consumer key and secret each user enters in Settings and
+> exchanges tokens directly; deploy this only for a pre-configured build without user secrets.
+
 Tumblr's OAuth2 token endpoint requires the app's `client_secret`. A mobile app cannot keep a
 secret, so this tiny stateless Cloudflare Worker adds it. The app talks to the Worker; the
 Worker talks to `https://api.tumblr.com/v2/oauth2/token`.

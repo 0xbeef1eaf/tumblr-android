@@ -8,7 +8,7 @@ work packages and conventions summarised here.
 
 ```sh
 npm ci
-cp .env.example .env    # set EXPO_PUBLIC_TUMBLR_API_KEY (see README)
+cp .env.example .env    # optional: all values are fallbacks (see README)
 ```
 
 ## Branches and commits
@@ -29,7 +29,7 @@ cp .env.example .env    # set EXPO_PUBLIC_TUMBLR_API_KEY (see README)
 npm run typecheck     # tsc --noEmit
 npm run lint          # eslint . (Prettier is enforced through ESLint)
 npm test              # jest
-EXPO_PUBLIC_TUMBLR_API_KEY=placeholder npm run export:android   # Metro bundle smoke test
+npm run export:android   # Metro bundle smoke test (no env needed)
 ```
 
 CI runs exactly these on every push and pull request. `npm run format` and
@@ -52,7 +52,8 @@ CI runs exactly these on every push and pull request. `npm run format` and
 - React Native Testing Library 14 is fully async: `await render(...)`, `await renderHook(...)`,
   `await fireEvent.*(...)`.
 - No live API calls. Use msw handlers and the recorded JSON in `src/api/fixtures/`
-  (`src/test/msw.ts`); tests default `EXPO_PUBLIC_TUMBLR_API_KEY` to `test`.
+  (`src/test/msw.ts`); `src/test/setup.ts` seeds the credentials store with
+  `{ consumerKey: 'test' }` before each test.
 - Mock native modules in `src/test/setup.ts` or per test (`expo-image`, secure store and
   MMKV are already mocked).
 
@@ -74,7 +75,7 @@ Rules of thumb: routes contain no API calls; features may use `src/api`, `src/do
 ## Secrets
 
 Anything prefixed `EXPO_PUBLIC_` ends up in the app bundle. Never commit `.env`, keystores,
-Play service-account keys or the Tumblr consumer secret. The consumer secret belongs only
-in the token-exchange proxy's environment.
+Play service-account keys or a Tumblr consumer secret. Users enter their own secret in
+Settings; a shared secret belongs only in the optional token-exchange proxy's environment.
 
 By contributing you agree that your work is licensed under the [MIT licence](LICENSE).

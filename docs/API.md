@@ -4,8 +4,8 @@ Source: https://github.com/tumblr/docs (api.md, npf-spec.md), checked 2026-10-31
 
 ## Conventions
 - Base `https://api.tumblr.com`. Envelope `{ meta: {status, msg}, response }`.
-- Auth levels: **None** (avatar), **API key** (`?api_key=` consumer key), **OAuth**
-  (`Authorization: Bearer`). OAuth also satisfies API-key endpoints.
+- Auth levels: **None** (avatar), **API key** (`?api_key=` consumer key, the user's own from
+  Settings), **OAuth** (`Authorization: Bearer`). OAuth also satisfies API-key endpoints.
 - `User-Agent` is required and must be consistent.
 - IDs are 64-bit: always use `id_string`, never `id` as a JS number.
 - Rate limits: 300/min & 18k/h per IP; **1000/h & 5000/day per consumer key**;
@@ -37,7 +37,13 @@ search plus direct blog lookup.
   `{grant_type: 'authorization_code', code, client_id, client_secret, redirect_uri}`
   → `{access_token, expires_in (~2520 s), token_type: 'bearer', scope, refresh_token}`
 - Refresh: same URL, `{grant_type: 'refresh_token', refresh_token, client_id, client_secret}`; 401 = refresh token dead.
-- `client_secret` is required → exchange via proxy (see ARCHITECTURE §7). No PKCE documented; still send `state`.
+- `client_secret` is required. The app uses the user's own Tumblr app: `client_id` is the
+  consumer key and `client_secret` the consumer secret entered in Settings → Tumblr API, sent
+  directly to the token URL above (exchange and refresh) in every build. A build-time
+  secret is honoured only in dev builds; without any secret an optional proxy
+  (`EXPO_PUBLIC_TOKEN_EXCHANGE_URL`) can add one (see ARCHITECTURE §7). No PKCE documented;
+  still send `state`.
+- Tokens belong to the app that issued them: changing or removing the credentials signs out.
 
 ## Post shapes to handle
 

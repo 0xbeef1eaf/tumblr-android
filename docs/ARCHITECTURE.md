@@ -40,6 +40,7 @@ src/
   api/
     client.ts                fetch wrapper: base URL, User-Agent, api_key/Bearer, 429 backoff, zod parse
     auth.ts                  OAuth2: authorize, exchange, refresh, token store (SecureStore)
+    credentials.ts           user's own consumer key/secret (SecureStore) + env fallback resolution
     endpoints/               one file per resource: tagged.ts, blog.ts, user.ts, posts.ts
     schemas/                 zod schemas: npf.ts, legacy.ts, blog.ts, user.ts, envelope.ts
     fixtures/                recorded JSON used by msw handlers and tests
@@ -55,7 +56,8 @@ src/
     tag/                     useTaggedPosts
     post/                    PostDetail, NpfRenderer, useLike, useReblog
     auth/                    useSession, SignInButton, authStore
-    settings/                settingsStore, SettingsScreen
+    credentials/             useCredentialsStore, useCredentialsBootstrap, useApiKeyStatus, ConnectAppCard
+    settings/                settingsStore, SettingsScreen, TumblrApiSection, CredentialsSheet
     explore/                 StarterTags, RecentChips, FollowingRow
   ui/
     theme.ts                 tokens; useTheme(); light/dark
@@ -63,7 +65,7 @@ src/
   lib/
     queryClient.ts           QueryClient + persister
     storage.ts               MMKV instance + zustand storage adapter
-    env.ts                   EXPO_PUBLIC_* read + validation
+    env.ts                   optional EXPO_PUBLIC_* fallbacks: read + validation
     log.ts
 docs/
 ```
@@ -165,8 +167,11 @@ Tumblr serves 75/100/250/400/500/540/640/1280/2048 widths; GIFs should prefer
 
 - Base `https://api.tumblr.com`; constant `User-Agent: TumblrGallery/<version> (Android)`
   — Tumblr requires a consistent UA.
-- Guest requests append `api_key=<EXPO_PUBLIC_TUMBLR_API_KEY>`; authed requests
-  send `Authorization: Bearer <token>` and omit `api_key`.
+- Guest requests append `api_key=<consumer key>`, read per request from the effective
+  credentials (§7: Settings first, then `EXPO_PUBLIC_TUMBLR_API_KEY`). With no key at all,
+  `apiFetch` throws `MissingCredentialsError` before any network call (never retried), and
+  screens gate their queries on `useApiKeyStatus()` instead. Authed requests send
+  `Authorization: Bearer <token>` and omit `api_key`.
 - Envelope: `{ meta: { status, msg }, response, errors? }` — parse `meta.status`
   before `response`.
 - Errors: `ApiError { status, code?, detail?, retryAfterSec? }`. 429 → exponential
@@ -177,24 +182,45 @@ Tumblr serves 75/100/250/400/500/540/640/1280/2048 widths; GIFs should prefer
 
 ## 7. Authentication
 
-Tumblr's OAuth2 token endpoint requires `client_secret` and the docs do not
-mention PKCE, so a pure mobile app cannot complete the exchange without
-exposing the secret. Design:
+**Bring your own credentials.** Tumblr's OAuth2 token endpoint requires `client_secret` and
+documents no PKCE, so the app does not ship a secret at all: each user registers their own
+Tumblr app and enters its **consumer key** and **consumer secret** in Settings → Tumblr API.
+The secret is theirs, on their own device, so the direct exchange is fine in every build.
 
-1. **Guest mode** (default): API-key-only; all public galleries work.
-2. **Sign in**: `expo-auth-session` opens
-   `https://www.tumblr.com/oauth2/authorize?client_id&response_type=code&scope=basic write offline_access&state&redirect_uri`.
-   Redirect URI: `tumblrgallery://auth/callback` (registered in the Tumblr app).
-3. **Token exchange** is done by `src/api/auth.ts` against
-   `EXPO_PUBLIC_TOKEN_EXCHANGE_URL` — a tiny stateless proxy (reference
-   implementation as a Cloudflare Worker in `proxy/`) that adds `client_secret`
-   and forwards to `https://api.tumblr.com/v2/oauth2/token`. If the variable is
-   unset **and** `EXPO_PUBLIC_TUMBLR_CLIENT_SECRET` is set (dev builds only),
-   the app calls Tumblr directly. Production builds assert the proxy is set.
-4. Tokens (`access_token`, `refresh_token`, `expires_at`) go in SecureStore.
+1. **Credentials store** (`src/api/credentials.ts`, React-free): `TumblrCredentials
+   { consumerKey; consumerSecret? }`, trimmed, saved as one JSON value under
+   `tumblr.credentials` in SecureStore (memory under jest). `load()` once, then synchronous
+   `get()`. `features/credentials` mirrors it into a zustand store (`status`,
+   `credentials`, `source: 'user'|'env'|'none'`, `hasApiKey`, `setCredentials`,
+   `clearCredentials`); `useCredentialsBootstrap()` runs in `AuthProvider`, and the session
+   bootstrap waits for it because refreshing a stored token needs the secret.
+2. **Effective credentials** (`getEffectiveCredentials()`): the user-entered pair if any
+   (never mixed with a baked-in secret), else `EXPO_PUBLIC_TUMBLR_API_KEY` /
+   `EXPO_PUBLIC_TUMBLR_CLIENT_SECRET`, else none. `hasApiKey()` says whether guest
+   requests are possible.
+3. **Guest mode** (default): API-key-only; all public galleries work. Without a key, Explore,
+   Search, Tag and Blog show the "Connect your Tumblr app" card (DESIGN §3.1).
+4. **Sign in**: `sessionController.signIn()` first calls `assertSignInConfigured()`; a
+   missing key/secret toasts the reason with a "Settings" action, without opening the
+   browser. Then `expo-auth-session` opens
+   `https://www.tumblr.com/oauth2/authorize?client_id=<consumer key>&response_type=code&scope=basic write offline_access&state&redirect_uri`.
+   Redirect URI: `tumblrgallery://auth/callback` (registered in the user's Tumblr app;
+   Settings has a copy row).
+5. **Token exchange / refresh** (`src/api/auth.ts`, `resolveTokenEndpoint`), in order:
+   - consumer secret entered in Settings → `POST https://api.tumblr.com/v2/oauth2/token`
+     with `client_id` = consumer key and `client_secret`, in **all** builds;
+   - secret from `EXPO_PUBLIC_TUMBLR_CLIENT_SECRET` → direct, **development builds only**
+     (`__DEV__`); release builds ignore it;
+   - `EXPO_PUBLIC_TOKEN_EXCHANGE_URL` → the optional proxy (`proxy/`), which adds its secret;
+   - otherwise `AuthConfigError("Add your Tumblr app's consumer secret in Settings to sign
+     in")` (or "consumer key and secret" when there is no key).
+6. Tokens (`access_token`, `refresh_token`, `expires_at`) go in SecureStore.
    `client.ts` refreshes proactively when < 60 s remain and serialises
    concurrent refreshes with a single in-flight promise.
-5. `useSession()` exposes `{ status: 'guest'|'signedIn'|'loading', user, signIn, signOut }`.
+7. **Changing credentials**: saving new ones or "Remove credentials" signs out (tokens
+   belong to the app that issued them) and drops the `blog`, `tagged`, `post`, `user`,
+   `dashboard`, `likes` and `following` queries.
+8. `useSession()` exposes `{ status: 'guest'|'signedIn'|'loading', user, signIn, signOut }`.
 
 ## 8. Performance budget
 
@@ -214,17 +240,27 @@ exposing the secret. Design:
 - Hooks: `renderHook` with a test QueryClient and msw.
 - Components: `MasonryGallery` renders N tiles and opens the viewer store;
   `SearchBar` debounce and suggestions; `SettingsScreen` toggles persist.
-- No live API calls in tests. CI sets dummy `EXPO_PUBLIC_TUMBLR_API_KEY=test`.
-- Smoke: `npx expo export --platform android` must succeed (Metro bundles the app).
+- No live API calls in tests. `src/test/setup.ts` seeds the credentials store with
+  `{ consumerKey: 'test' }` before each test; env fallbacks are unset under jest and tests
+  that need them pass an `Env` explicitly.
+- Smoke: `npx expo export --platform android` must succeed (Metro bundles the app) with no
+  environment variables set.
 
 ## 10. Configuration & secrets
 
-`.env.example`:
+Credentials are runtime configuration: the user enters their Tumblr app's consumer key and
+secret in Settings (SecureStore, §7). Nothing is required at build time, and `parseEnv`
+accepts an empty environment.
+
+`.env.example` lists the **optional** fallbacks for a pre-configured build:
 ```
-EXPO_PUBLIC_TUMBLR_API_KEY=        # OAuth consumer key (public by design)
-EXPO_PUBLIC_TOKEN_EXCHANGE_URL=    # https://<worker>.workers.dev/token
-EXPO_PUBLIC_TUMBLR_CLIENT_SECRET=  # dev only; never set in EAS production profile
+EXPO_PUBLIC_TUMBLR_API_KEY=        # built-in consumer key ("Using built-in key")
+EXPO_PUBLIC_TOKEN_EXCHANGE_URL=    # optional proxy: https://<worker>.workers.dev/token
+EXPO_PUBLIC_TUMBLR_CLIENT_SECRET=  # dev builds only; ignored in release; never in EAS profiles
 ```
+Values entered in Settings always win. `EXPO_PUBLIC_*` values are inlined into the bundle,
+so a distributed build must never carry a secret; use the proxy instead.
+
 `app.config.ts` reads these; `scheme: 'tumblrgallery'`; Android package
 `com.tumblrgallery.app`; `android.blockedPermissions` keeps the manifest minimal
 (`WRITE_EXTERNAL_STORAGE` not needed on API 29+; saving uses `expo-media-library`

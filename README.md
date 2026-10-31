@@ -5,7 +5,9 @@ React Native 0.88 and expo-router. Every surface — tags, blogs, search, your d
 is a masonry grid of images, GIFs and video, and every item opens in a full-screen,
 zoomable viewer.
 
-- **Guest browsing**: no account needed. Public tags and blogs work with just an API key.
+- **Bring your own credentials**: paste your Tumblr app's consumer key (and secret, to sign
+  in) in Settings. Nothing is baked into the build.
+- **Guest browsing**: no account needed. Public tags and blogs work with just the key.
 - **Optional sign-in**: OAuth2 adds your dashboard, likes, follows and reblogs.
 - **Safe mode**, grid density, autoplay and cache controls live in the Settings tab.
 
@@ -19,7 +21,7 @@ _Screenshots coming soon._ <!-- Add images under docs/screenshots/ and link them
 ## Requirements
 
 - Node.js 22.12 or newer and npm
-- A Tumblr OAuth application (see below) for the consumer key
+- A Tumblr OAuth application (see below): you enter its consumer key and secret in the app
 - For on-device testing: an Android device or emulator and a **development build**. Native
   modules (MMKV, SecureStore, expo-video, …) mean Expo Go is not enough.
 - For cloud builds: an [Expo](https://expo.dev) account and `npm i -g eas-cli` (>= 16)
@@ -31,43 +33,57 @@ check all run on plain Node.
 
 ```sh
 npm ci
-cp .env.example .env     # then fill in the values described below
+npx expo start            # or install a development / preview build (see Running)
 ```
 
-| Variable                           | Required    | Purpose                                                           |
-| ---------------------------------- | ----------- | ----------------------------------------------------------------- |
-| `EXPO_PUBLIC_TUMBLR_API_KEY`       | yes         | OAuth consumer key of your Tumblr app (public by design)          |
-| `EXPO_PUBLIC_TOKEN_EXCHANGE_URL`   | for sign-in | URL of the token-exchange proxy that adds the client secret       |
-| `EXPO_PUBLIC_TUMBLR_CLIENT_SECRET` | dev only    | Lets dev builds exchange tokens directly; never set in production |
+Then, in the app, open **Settings → Tumblr API** and paste your own Tumblr app's
+**consumer key** and **consumer secret** (register one as described below). That's it: no
+`.env`, no proxy, no rebuild.
 
-`EXPO_PUBLIC_*` values are inlined into the JavaScript bundle, so **never** put a secret in
-a build you distribute. Under Jest the API key defaults to `test`; no test or CI job calls
-the live API (requests are served by [msw](https://mswjs.io) from `src/api/fixtures/`).
+- The **consumer key** is enough for guest browsing (tags, blogs, search). Without it the
+  app shows a "Connect your Tumblr app" card instead of galleries.
+- The **consumer secret** is needed to sign in. Because it is your own app's secret on your
+  own device, the app exchanges and refreshes OAuth2 tokens directly with
+  `https://api.tumblr.com/v2/oauth2/token`, in every build type.
+- Both are stored only on the device, in `expo-secure-store` (Android Keystore / iOS
+  Keychain), never in MMKV, the query cache or logs. "Remove credentials" deletes them and
+  signs you out; saving new ones also signs you out, since tokens belong to the app that
+  issued them.
+
+No test or CI job calls the live API: requests are served by [msw](https://mswjs.io) from
+`src/api/fixtures/`, and tests seed the credentials store with a dummy key `test`.
 
 ### Register a Tumblr app
 
-1. Sign in to Tumblr and open <https://www.tumblr.com/oauth/apps>, then choose **Register
-   application**.
+1. Sign in to Tumblr and open <https://www.tumblr.com/oauth/apps> (Settings has an "Open
+   Tumblr apps page" link), then choose **Register application**.
 2. Fill in the name, description and a website URL.
-3. Set the **Default callback URL** (OAuth2 redirect URL) to `tumblrgallery://auth/callback`.
-4. Save, then copy the **OAuth Consumer Key** into `EXPO_PUBLIC_TUMBLR_API_KEY`. Keep the
-   **Consumer Secret** private: it goes only into the token-exchange proxy.
+3. Set the **Default callback URL** (OAuth2 redirect URL) to `tumblrgallery://auth/callback`
+   (Settings → Tumblr API has a row that copies it).
+4. Save, then copy the **OAuth Consumer Key** and **Secret Key** into Settings → Tumblr API.
 
-With just the consumer key, guest browsing works. Signing in also needs the proxy below.
+### Optional: pre-configured builds
 
-### Token-exchange proxy
+If you distribute a build to people who should not need their own Tumblr app, you can bake
+fallbacks in at build time. Anything entered in Settings always wins over them.
 
-Tumblr's OAuth2 token endpoint requires a `client_secret`, and its docs describe no PKCE
-flow, so a mobile app cannot complete the code exchange without shipping the secret. The
-app therefore sends the authorization code to a tiny stateless proxy that adds the secret
-and forwards the request to `https://api.tumblr.com/v2/oauth2/token`.
+```sh
+cp .env.example .env     # all values are optional
+```
 
-- Reference implementation (Cloudflare Worker) and deployment steps: [`proxy/README.md`](proxy/README.md).
-- Point the app at it with `EXPO_PUBLIC_TOKEN_EXCHANGE_URL=https://<worker>.workers.dev/token`.
-- For local development only, you may instead set `EXPO_PUBLIC_TUMBLR_CLIENT_SECRET` and
-  leave the URL empty; the app then calls Tumblr directly. Production builds require the proxy.
+| Variable                           | Purpose                                                                      |
+| ---------------------------------- | ---------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_TUMBLR_API_KEY`       | Built-in consumer key for guest browsing ("Using built-in key")              |
+| `EXPO_PUBLIC_TOKEN_EXCHANGE_URL`   | Token-exchange proxy that adds the secret, so users of the build can sign in |
+| `EXPO_PUBLIC_TUMBLR_CLIENT_SECRET` | Development builds only: direct exchange with the built-in key               |
 
-See [docs/ARCHITECTURE.md §7](docs/ARCHITECTURE.md) for the full flow.
+`EXPO_PUBLIC_*` values are inlined into the JavaScript bundle, so **never** bake a secret into
+a build you distribute; release builds ignore `EXPO_PUBLIC_TUMBLR_CLIENT_SECRET`. Use the
+proxy instead: a tiny stateless Cloudflare Worker that adds the secret and forwards the grant
+to Tumblr. Reference implementation and deployment steps:
+[`proxy/README.md`](proxy/README.md).
+
+See [docs/ARCHITECTURE.md §7](docs/ARCHITECTURE.md) for the full credential and sign-in flow.
 
 ## Running
 
@@ -79,9 +95,9 @@ eas build -p android --profile preview       # installable APK for testers
 eas build -p android --profile production    # Play Store app bundle (AAB)
 ```
 
-EAS profiles are defined in [`eas.json`](eas.json). Replace the placeholder
-`EXPO_PUBLIC_*` values there (or use EAS environment variables) before building; do not set
-`EXPO_PUBLIC_TUMBLR_CLIENT_SECRET` in any distributed profile. `submit.production` is a stub for
+EAS profiles are defined in [`eas.json`](eas.json). Their `EXPO_PUBLIC_*` values are
+placeholders for the optional pre-configured fallbacks; replace or remove them (or use EAS
+environment variables). Never set `EXPO_PUBLIC_TUMBLR_CLIENT_SECRET` in a distributed profile. `submit.production` is a stub for
 Google Play: supply your own service-account key (kept out of git) before `eas submit`.
 
 ## Scripts
@@ -95,20 +111,20 @@ Google Play: supply your own service-account key (kept out of git) before `eas s
 | `npm test` / `test:watch`       | Jest (`jest-expo` preset, msw)                              |
 | `npm run export:android`        | `expo export --platform android`, a Metro bundle smoke test |
 
-`export:android` needs `EXPO_PUBLIC_TUMBLR_API_KEY` set; any placeholder works.
+`export:android` needs no environment variables.
 
 ## Project structure
 
 ```
 app/            expo-router routes (thin; compose feature screens)
-src/api/        fetch client, zod schemas, endpoints, OAuth token plumbing, fixtures
+src/api/        fetch client, zod schemas, endpoints, credentials store, OAuth plumbing, fixtures
 src/domain/     normalizePost -> GalleryItem, media variant selection, text helpers
-src/features/   feature modules: auth, settings, gallery, viewer, search, explore,
-                tag, blog, post
+src/features/   feature modules: auth, credentials, settings, gallery, viewer, search,
+                explore, tag, blog, post
 src/ui/         theme tokens and primitives (Text, Pressable, Chip, Sheet, Toast, Icon, Skeleton)
 src/lib/        env, storage (MMKV), react-query client + persister, logging
 src/test/       jest setup, native mocks, msw handlers
-proxy/          Cloudflare Worker token-exchange reference
+proxy/          optional Cloudflare Worker token-exchange reference
 docs/           design, architecture, API notes, work plan
 ```
 
