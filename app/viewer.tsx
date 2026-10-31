@@ -1,6 +1,6 @@
-import { PlaceholderScreen } from '@/ui/PlaceholderScreen';
+import { ViewerScreen } from '@/features/viewer';
 
-/** Full-screen media viewer (transparent modal) — placeholder (WP2). */
-export default function ViewerScreen() {
-  return <PlaceholderScreen route="viewer" />;
+/** Full-screen media viewer (transparent modal, DESIGN §3.7). */
+export default function Viewer() {
+  return <ViewerScreen />;
 }
