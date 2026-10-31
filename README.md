@@ -100,6 +100,44 @@ placeholders for the optional pre-configured fallbacks; replace or remove them (
 environment variables). Never set `EXPO_PUBLIC_TUMBLR_CLIENT_SECRET` in a distributed profile. `submit.production` is a stub for
 Google Play: supply your own service-account key (kept out of git) before `eas submit`.
 
+## Builds
+
+[`.github/workflows/build-android.yml`](.github/workflows/build-android.yml) builds a release
+APK with Gradle on every push to `main`, on every `v*` tag, and on demand (Actions → Build
+Android → Run workflow). It runs `npx expo prebuild --platform android` (CNG: `android/` is
+generated in CI and never committed) and then `./gradlew assembleRelease`.
+
+- **Download a CI build:** open the workflow run and download the `tumblr-gallery-apk`
+  artifact (kept 30 days). It is a zip containing the APK.
+- **Releases:** push a tag such as `v1.2.0` (`git tag v1.2.0 && git push origin v1.2.0`); the
+  same job creates a GitHub Release with the APK attached and generated release notes.
+
+> **Debug-signed.** The Expo template's `release` build type signs with the debug keystore.
+> The APK installs on any device (allow "install unknown apps"), but it cannot be uploaded
+> to Google Play, and Android will not update it in place with a build signed by a
+> different key (uninstall first).
+
+To sign with a real keystore, pick one:
+
+- **EAS credentials (recommended):** `eas credentials -p android` creates or uploads a
+  keystore that EAS manages; build with `eas build -p android --profile production` (AAB
+  for Play) or `--profile preview` (APK).
+- **Gradle signing via secrets:** store the keystore as a base64 repository secret (for
+  example `ANDROID_KEYSTORE_BASE64`, plus `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
+  `ANDROID_KEY_PASSWORD`). After the prebuild step, decode it to `android/app/release.jks`
+  and add a `release` signing config, ideally through a small Expo config plugin so prebuild
+  output stays reproducible, that reads those values from environment variables. Never
+  commit the keystore (`*.jks` is gitignored).
+
+**Optional EAS job.** The same workflow can also queue an EAS cloud build
+(`eas build --platform android --profile preview --non-interactive --no-wait`). It runs only
+when the repository variable `EAS_BUILD_ENABLED` is `true` (Settings → Secrets and variables
+→ Actions → Variables), and needs an Expo access token in the `EXPO_TOKEN` secret (create it
+at expo.dev → Account settings → Access tokens). The project must be linked to EAS first
+(`eas init`), and the placeholder `EXPO_PUBLIC_*` values in the `preview` profile of
+`eas.json` should be replaced or removed. The job exits once the build is queued; the APK
+appears on expo.dev.
+
 ## Scripts
 
 | Script                          | What it does                                                |
@@ -142,7 +180,8 @@ npm run typecheck && npm run lint && npm test
 ```
 
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the same checks plus
-`npm run export:android` on every push and pull request.
+`npm run export:android` on every push and pull request. Release APKs are built by a
+separate workflow (see [Builds](#builds)).
 
 ## Documentation
 

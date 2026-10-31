@@ -32,8 +32,10 @@ npm test              # jest
 npm run export:android   # Metro bundle smoke test (no env needed)
 ```
 
-CI runs exactly these on every push and pull request. `npm run format` and
-`npm run lint:fix` fix most style issues.
+CI (`.github/workflows/ci.yml`) runs exactly these on every push and pull request.
+`.github/workflows/build-android.yml` builds a debug-signed release APK on pushes to `main`,
+`v*` tags (attached to a GitHub Release) and manual runs; see the README's "Builds" section.
+`npm run format` and `npm run lint:fix` fix most style issues.
 
 ## Code rules
 

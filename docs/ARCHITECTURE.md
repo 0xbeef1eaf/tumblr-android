@@ -18,7 +18,7 @@
 | Validation | `zod` v4 | Parse API responses at the boundary; fixtures double as contract tests |
 | Tests | `jest-expo`, `@testing-library/react-native`, `msw` v2 | Unit + component tests against recorded fixtures |
 | Lint | `eslint-config-expo`, `prettier` | |
-| CI | GitHub Actions: typecheck, lint, test, `expo export` | No device needed |
+| CI | GitHub Actions: typecheck, lint, test, `expo export`; `build-android.yml`: prebuild + Gradle release APK (debug-signed), GitHub Release on `v*` tags | No device needed |
 | Builds | EAS (`eas.json`: development, preview APK, production AAB) | |
 
 ## 2. Repository layout
