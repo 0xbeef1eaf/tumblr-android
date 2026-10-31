@@ -1,0 +1,210 @@
+{
+  "meta": {
+    "status": 200,
+    "msg": "OK"
+  },
+  "response": {
+    "liked_posts": [
+      {
+        "object_type": "post",
+        "type": "blocks",
+        "original_type": "photo",
+        "is_blocks_post_format": true,
+        "blog_name": "archiform",
+        "blog": {
+          "name": "archiform",
+          "title": "Archiform",
+          "url": "https://archiform.tumblr.com/",
+          "uuid": "t:H84k7IzCf9CZyXDBymbF-y",
+          "updated": 1761900000
+        },
+        "id": 742388100717577531,
+        "id_string": "742388100717577531",
+        "post_url": "https://archiform.tumblr.com/post/742388100717577531/concrete",
+        "slug": "concrete",
+        "date": "2025-10-30 22:06:40 GMT",
+        "timestamp": 1761862000,
+        "state": "published",
+        "reblog_key": "6HulGFGa",
+        "tags": ["architecture"],
+        "short_url": "https://tmblr.co/ZVfXhpNCSbPLa",
+        "summary": "Concrete",
+        "should_open_in_legacy": false,
+        "note_count": 903,
+        "content": [
+          {
+            "type": "image",
+            "media": [
+              {
+                "mediaKey": "845e4019f910be68d133841aa0d156d0:654f94db9a266f71-47",
+                "type": "image/jpeg",
+                "width": 1280,
+                "height": 1600,
+                "url": "https://64.media.tumblr.com/845e4019f910be68d133841aa0d156d0/654f94db9a266f71-f1/s1280x1600/7e1251721ad58d331f76ae1f9819fed403a4c873.jpg",
+                "has_original_dimensions": true
+              },
+              {
+                "mediaKey": "845e4019f910be68d133841aa0d156d0:654f94db9a266f71-3c",
+                "type": "image/jpeg",
+                "width": 640,
+                "height": 800,
+                "url": "https://64.media.tumblr.com/845e4019f910be68d133841aa0d156d0/654f94db9a266f71-78/s640x1200/7e1251721ad58d331f76ae1f9819fed403a4c873.jpg"
+              },
+              {
+                "mediaKey": "845e4019f910be68d133841aa0d156d0:654f94db9a266f71-71",
+                "type": "image/jpeg",
+                "width": 540,
+                "height": 675,
+                "url": "https://64.media.tumblr.com/845e4019f910be68d133841aa0d156d0/654f94db9a266f71-73/s540x1012/7e1251721ad58d331f76ae1f9819fed403a4c873.jpg"
+              },
+              {
+                "mediaKey": "845e4019f910be68d133841aa0d156d0:654f94db9a266f71-2f",
+                "type": "image/jpeg",
+                "width": 500,
+                "height": 625,
+                "url": "https://64.media.tumblr.com/845e4019f910be68d133841aa0d156d0/654f94db9a266f71-8a/s500x938/7e1251721ad58d331f76ae1f9819fed403a4c873.jpg"
+              },
+              {
+                "mediaKey": "845e4019f910be68d133841aa0d156d0:654f94db9a266f71-2c",
+                "type": "image/jpeg",
+                "width": 400,
+                "height": 500,
+                "url": "https://64.media.tumblr.com/845e4019f910be68d133841aa0d156d0/654f94db9a266f71-c0/s400x750/7e1251721ad58d331f76ae1f9819fed403a4c873.jpg"
+              },
+              {
+                "mediaKey": "845e4019f910be68d133841aa0d156d0:654f94db9a266f71-52",
+                "type": "image/jpeg",
+                "width": 250,
+                "height": 312,
+                "url": "https://64.media.tumblr.com/845e4019f910be68d133841aa0d156d0/654f94db9a266f71-d6/s250x468/7e1251721ad58d331f76ae1f9819fed403a4c873.jpg"
+              },
+              {
+                "mediaKey": "845e4019f910be68d133841aa0d156d0:654f94db9a266f71-54",
+                "type": "image/jpeg",
+                "width": 100,
+                "height": 125,
+                "url": "https://64.media.tumblr.com/845e4019f910be68d133841aa0d156d0/654f94db9a266f71-91/s100x188/7e1251721ad58d331f76ae1f9819fed403a4c873.jpg"
+              },
+              {
+                "mediaKey": "845e4019f910be68d133841aa0d156d0:654f94db9a266f71-22",
+                "type": "image/jpeg",
+                "width": 75,
+                "height": 75,
+                "cropped": true,
+                "url": "https://64.media.tumblr.com/845e4019f910be68d133841aa0d156d0/654f94db9a266f71-2d/s75x75_c1/7e1251721ad58d331f76ae1f9819fed403a4c873.jpg"
+              }
+            ],
+            "colors": {
+              "c0": "e1e1e1",
+              "c1": "e8d9c1"
+            },
+            "feedback_token": "d575e7d9567f87a50c2098a49f2267a9bdce23640ffd592eb261937756f98f51"
+          }
+        ],
+        "layout": [],
+        "trail": [],
+        "can_like": true,
+        "can_reblog": true,
+        "can_send_in_message": true,
+        "liked": true,
+        "followed": false,
+        "liked_timestamp": 1761908000
+      },
+      {
+        "type": "photo",
+        "blog_name": "grainandlight",
+        "blog": {
+          "name": "grainandlight",
+          "title": "Grainandlight",
+          "description": "",
+          "url": "https://grainandlight.tumblr.com/",
+          "uuid": "t:cjm7iXFCuJMnY6xeuMV56O",
+          "updated": 1761855600
+        },
+        "id": 742388048261697920,
+        "id_string": "742388048261697920",
+        "post_url": "https://grainandlight.tumblr.com/post/742388048261697920/tokyo-at-night",
+        "slug": "tokyo-at-night",
+        "date": "2025-10-30 19:20:00 GMT",
+        "timestamp": 1761852000,
+        "state": "published",
+        "format": "html",
+        "reblog_key": "Pt9jfvmk",
+        "tags": ["film"],
+        "short_url": "https://tmblr.co/ZNfCf3TeFZPRR",
+        "summary": "Tokyo at night",
+        "should_open_in_legacy": true,
+        "note_count": 450,
+        "can_like": true,
+        "can_reblog": true,
+        "can_send_in_message": true,
+        "liked": true,
+        "followed": false,
+        "liked_timestamp": 1761904000,
+        "photos": [
+          {
+            "caption": "",
+            "original_size": {
+              "url": "https://64.media.tumblr.com/3874edaa9fbfff2b005897514351f2ba/tumblr_yd16hz5hMpgx2LbgXo1_1280.jpg",
+              "width": 1280,
+              "height": 1920
+            },
+            "alt_sizes": [
+              {
+                "url": "https://64.media.tumblr.com/3874edaa9fbfff2b005897514351f2ba/tumblr_yd16hz5hMpgx2LbgXo1_1280.jpg",
+                "width": 1280,
+                "height": 1920
+              },
+              {
+                "url": "https://64.media.tumblr.com/3874edaa9fbfff2b005897514351f2ba/tumblr_yd16hz5hMpgx2LbgXo1_640.jpg",
+                "width": 640,
+                "height": 960
+              },
+              {
+                "url": "https://64.media.tumblr.com/3874edaa9fbfff2b005897514351f2ba/tumblr_yd16hz5hMpgx2LbgXo1_540.jpg",
+                "width": 540,
+                "height": 810
+              },
+              {
+                "url": "https://64.media.tumblr.com/3874edaa9fbfff2b005897514351f2ba/tumblr_yd16hz5hMpgx2LbgXo1_500.jpg",
+                "width": 500,
+                "height": 750
+              },
+              {
+                "url": "https://64.media.tumblr.com/3874edaa9fbfff2b005897514351f2ba/tumblr_yd16hz5hMpgx2LbgXo1_400.jpg",
+                "width": 400,
+                "height": 600
+              },
+              {
+                "url": "https://64.media.tumblr.com/3874edaa9fbfff2b005897514351f2ba/tumblr_yd16hz5hMpgx2LbgXo1_250.jpg",
+                "width": 250,
+                "height": 375
+              },
+              {
+                "url": "https://64.media.tumblr.com/3874edaa9fbfff2b005897514351f2ba/tumblr_yd16hz5hMpgx2LbgXo1_100.jpg",
+                "width": 100,
+                "height": 150
+              },
+              {
+                "url": "https://64.media.tumblr.com/3874edaa9fbfff2b005897514351f2ba/tumblr_yd16hz5hMpgx2LbgXo1_75sq.jpg",
+                "width": 75,
+                "height": 75
+              }
+            ]
+          }
+        ],
+        "caption": "<p>Tokyo at night</p>"
+      }
+    ],
+    "liked_count": 2381,
+    "_links": {
+      "next": {
+        "href": "/v2/user/likes?before=1761904000",
+        "method": "GET",
+        "query_params": {
+          "before": "1761904000"
+        }
+      }
+    }
+  }
+}

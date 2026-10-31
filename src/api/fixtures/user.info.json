@@ -1,0 +1,62 @@
+{
+  "meta": {
+    "status": 200,
+    "msg": "OK"
+  },
+  "response": {
+    "user": {
+      "name": "pixelwanderer",
+      "likes": 2381,
+      "following": 214,
+      "default_post_format": "html",
+      "blogs": [
+        {
+          "name": "pixelwanderer",
+          "title": "Pixel Wanderer",
+          "description": "collecting pretty things",
+          "url": "https://pixelwanderer.tumblr.com/",
+          "uuid": "t:Px1Wq2Er3Ty4Ui5Op6As7D",
+          "primary": true,
+          "followers": 532,
+          "posts": 9120,
+          "type": "public",
+          "admin": true,
+          "is_nsfw": false,
+          "is_adult": false,
+          "ask": false,
+          "updated": 1761911600,
+          "avatar": [
+            {
+              "width": 512,
+              "height": 512,
+              "url": "https://64.media.tumblr.com/avatar_6279781edfbf_512.pnj"
+            },
+            {
+              "width": 128,
+              "height": 128,
+              "url": "https://64.media.tumblr.com/avatar_dbf8e6c868e9_128.pnj"
+            },
+            {
+              "width": 64,
+              "height": 64,
+              "url": "https://64.media.tumblr.com/avatar_be08ed84c26d_64.pnj"
+            }
+          ]
+        },
+        {
+          "name": "pw-sideblog",
+          "title": "side",
+          "url": "https://pw-sideblog.tumblr.com/",
+          "uuid": "t:Sd8Fg9Hj0Kl1Zx2Cv3Bn4M",
+          "primary": false,
+          "followers": 3,
+          "posts": 41,
+          "type": "public",
+          "admin": true,
+          "is_nsfw": false,
+          "avatar": []
+        }
+      ]
+    }
+  }
+}

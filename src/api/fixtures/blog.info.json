@@ -1,0 +1,56 @@
+{
+  "meta": {
+    "status": 200,
+    "msg": "OK"
+  },
+  "response": {
+    "blog": {
+      "name": "northlight-studio",
+      "title": "Northlight Studio",
+      "description": "<p>Landscape &amp; travel photography by <a href=\"https://example.com\">A. Rivera</a>.</p>",
+      "url": "https://northlight-studio.tumblr.com/",
+      "uuid": "t:Hk3xQp0R9vXbL2mNcY7a1w",
+      "updated": 1761912000,
+      "posts": 1843,
+      "total_posts": 1843,
+      "ask": true,
+      "ask_anon": false,
+      "likes": 0,
+      "is_blocked_from_primary": false,
+      "is_nsfw": false,
+      "is_adult": false,
+      "avatar": [
+        {
+          "width": 512,
+          "height": 512,
+          "url": "https://64.media.tumblr.com/avatar_9927db445dbe_512.pnj"
+        },
+        {
+          "width": 128,
+          "height": 128,
+          "url": "https://64.media.tumblr.com/avatar_9209a786f6da_128.pnj"
+        },
+        {
+          "width": 96,
+          "height": 96,
+          "url": "https://64.media.tumblr.com/avatar_7380e6ca2cdb_96.pnj"
+        },
+        {
+          "width": 64,
+          "height": 64,
+          "url": "https://64.media.tumblr.com/avatar_95bfc3036a61_64.pnj"
+        }
+      ],
+      "theme": {
+        "avatar_shape": "circle",
+        "background_color": "#0f0f14",
+        "title_color": "#ffffff"
+      },
+      "followed": false,
+      "can_be_followed": true,
+      "share_likes": false,
+      "can_subscribe": false,
+      "subscribed": false
+    }
+  }
+}

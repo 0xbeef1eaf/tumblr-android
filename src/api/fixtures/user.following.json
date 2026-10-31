@@ -1,0 +1,95 @@
+{
+  "meta": {
+    "status": 200,
+    "msg": "OK"
+  },
+  "response": {
+    "total_blogs": 214,
+    "blogs": [
+      {
+        "name": "northlight-studio",
+        "title": "Northlight Studio",
+        "url": "https://northlight-studio.tumblr.com/",
+        "uuid": "t:04OHH_YfljCju3KZFFbBz_",
+        "updated": 1761912000,
+        "description": "",
+        "avatar": [
+          {
+            "width": 128,
+            "height": 128,
+            "url": "https://64.media.tumblr.com/avatar_54553618c9d5_128.pnj"
+          }
+        ]
+      },
+      {
+        "name": "alpine-archive",
+        "title": "Alpine Archive",
+        "url": "https://alpine-archive.tumblr.com/",
+        "uuid": "t:DDXDMHYXul_CgxdOYbehQL",
+        "updated": 1761908400,
+        "description": "",
+        "avatar": [
+          {
+            "width": 128,
+            "height": 128,
+            "url": "https://64.media.tumblr.com/avatar_e62c415df1f5_128.pnj"
+          }
+        ]
+      },
+      {
+        "name": "tiny-cat-daily",
+        "title": "Tiny Cat Daily",
+        "url": "https://tiny-cat-daily.tumblr.com/",
+        "uuid": "t:M80B8ZtuZSrzTSi36m_B6J",
+        "updated": 1761904800,
+        "description": "",
+        "avatar": [
+          {
+            "width": 128,
+            "height": 128,
+            "url": "https://64.media.tumblr.com/avatar_daebd7f07369_128.pnj"
+          }
+        ]
+      },
+      {
+        "name": "archiform",
+        "title": "Archiform",
+        "url": "https://archiform.tumblr.com/",
+        "uuid": "t:2Ha0COthCh0XaLpcY9YCMG",
+        "updated": 1761901200,
+        "description": "",
+        "avatar": [
+          {
+            "width": 128,
+            "height": 128,
+            "url": "https://64.media.tumblr.com/avatar_ef5af6f527c5_128.pnj"
+          }
+        ]
+      },
+      {
+        "name": "grainandlight",
+        "title": "Grainandlight",
+        "url": "https://grainandlight.tumblr.com/",
+        "uuid": "t:SqoYlozaT8NJpFNSy1J4MA",
+        "updated": 1761897600,
+        "description": "",
+        "avatar": [
+          {
+            "width": 128,
+            "height": 128,
+            "url": "https://64.media.tumblr.com/avatar_c970a1d9dd9a_128.pnj"
+          }
+        ]
+      }
+    ],
+    "_links": {
+      "next": {
+        "href": "/v2/user/following?offset=20",
+        "method": "GET",
+        "query_params": {
+          "offset": "20"
+        }
+      }
+    }
+  }
+}

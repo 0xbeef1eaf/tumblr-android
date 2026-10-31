@@ -1,0 +1,7 @@
+{
+  "access_token": "tg_test_24b2aeccbde6598c7b4d81ef9bf2234f1c75752e",
+  "expires_in": 2520,
+  "token_type": "bearer",
+  "scope": "basic write offline_access",
+  "refresh_token": "tg_refresh_be015c86828995522b02fdd291592d0158d635cf"
+}
