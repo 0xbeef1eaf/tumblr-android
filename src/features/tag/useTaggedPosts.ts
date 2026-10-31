@@ -5,12 +5,22 @@ import { useGalleryPaging } from '@/features/gallery';
 
 export const TAG_PAGE_SIZE = 20;
 
-/** Unix-seconds `before` cursor of a page: `featured_timestamp` of the last post, else `timestamp`. */
+/**
+ * Unix-seconds `before` cursor of a page. Featured feeds are ordered by
+ * `featured_timestamp`, so when every post has one the cursor is the smallest of them;
+ * on a mixed page `featured_timestamp` can be later than the post itself, so the
+ * smallest `timestamp` is used instead (never re-requesting posts already shown).
+ */
 export function taggedPageCursor(page: readonly Post[]): number | undefined {
-  const last = page[page.length - 1];
-  if (!last) return undefined;
-  const cursor = last.featured_timestamp ?? last.timestamp;
-  return cursor > 0 ? cursor : undefined;
+  if (page.length === 0) return undefined;
+  const featured = page.flatMap((p) =>
+    typeof p.featured_timestamp === 'number' && p.featured_timestamp > 0
+      ? [p.featured_timestamp]
+      : [],
+  );
+  const values = featured.length === page.length ? featured : page.map((p) => p.timestamp);
+  const cursor = Math.min(...values);
+  return Number.isFinite(cursor) && cursor > 0 ? cursor : undefined;
 }
 
 /**

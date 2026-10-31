@@ -1,5 +1,5 @@
 import { useInfiniteQuery, type InfiniteData, type QueryKey } from '@tanstack/react-query';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import type { GalleryItem } from '@/domain/galleryItem';
 
@@ -50,8 +50,10 @@ export function flattenGalleryPages<TPage>(pages: readonly GalleryPage<TPage>[])
 }
 
 /**
- * Next page param, or `undefined` to stop: when the caller has no cursor, the cursor was
- * already requested (Tumblr pages can repeat), or the last page added no new items.
+ * Next page param, or `undefined` to stop: when the caller has no cursor (callers return
+ * `undefined` for a page with zero posts) or the cursor was already requested (Tumblr pages
+ * can repeat). A page without media does not stop paging — see `useGalleryPaging`'s
+ * auto-advance.
  */
 export function nextGalleryCursor<TPage, TCursor extends Cursor>(
   pages: readonly GalleryPage<TPage>[],
@@ -65,9 +67,25 @@ export function nextGalleryCursor<TPage, TCursor extends Cursor>(
     pages.map((p) => p.page),
   );
   if (cursor === undefined || pageParams.includes(cursor)) return undefined;
-  const earlier = new Set(pages.slice(0, -1).flatMap((p) => p.items.map((item) => item.id)));
-  const addsNew = last.items.some((item) => !earlier.has(item.id));
-  return addsNew ? cursor : undefined;
+  return cursor;
+}
+
+/** Auto-advance stops after this many consecutive pages that brought no new items. */
+export const MAX_ITEMLESS_PAGES = 5;
+
+/** Number of trailing pages that added no item unseen in the pages before them. */
+export function trailingItemlessPages<TPage>(pages: readonly GalleryPage<TPage>[]): number {
+  const seen = new Set<string>();
+  let trailing = 0;
+  for (const { items } of pages) {
+    let addsNew = false;
+    for (const item of items) {
+      if (!seen.has(item.id)) addsNew = true;
+      seen.add(item.id);
+    }
+    trailing = addsNew ? 0 : trailing + 1;
+  }
+  return trailing;
 }
 
 const EMPTY: GalleryItem[] = [];
@@ -104,6 +122,19 @@ export function useGalleryPaging<TPage, TCursor extends Cursor = number>({
   const items = useMemo(() => (pages ? flattenGalleryPages(pages) : EMPTY), [pages]);
 
   const { hasNextPage, isFetchingNextPage, fetchNextPage: fetchNext, refetch: refetchAll } = query;
+
+  // A page of text-only posts renders nothing, so the list's onEndReached may never fire
+  // again: fetch the next page automatically, up to MAX_ITEMLESS_PAGES in a row.
+  const itemless = useMemo(() => (pages ? trailingItemlessPages(pages) : 0), [pages]);
+  const autoAdvance =
+    itemless > 0 &&
+    itemless < MAX_ITEMLESS_PAGES &&
+    hasNextPage &&
+    !query.isFetching &&
+    !query.isFetchNextPageError;
+  useEffect(() => {
+    if (autoAdvance) void fetchNext();
+  }, [autoAdvance, fetchNext, pages]);
   const fetchNextPage = useCallback(async (): Promise<unknown> => {
     if (!hasNextPage || isFetchingNextPage) return undefined;
     return fetchNext();

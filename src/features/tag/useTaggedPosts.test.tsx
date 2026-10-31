@@ -28,12 +28,18 @@ const post = (timestamp: number, featured?: number | null): Post => {
 describe('taggedPageCursor', () => {
   it.each<[string, Post[], number | undefined]>([
     ['empty page', [], undefined],
-    ['last post timestamp', [post(300), post(200)], 200],
-    ['featured_timestamp wins when present', [post(300), post(200, 250)], 250],
-    ['null featured_timestamp falls back', [post(300), post(200, null)], 200],
-    ['only the LAST post matters', [post(300, 999), post(200)], 200],
+    ['smallest timestamp', [post(300), post(200)], 200],
+    ['all featured: smallest featured_timestamp', [post(300, 400), post(200, 350)], 350],
+    ['mixed page: smallest timestamp, not a later featured one', [post(300), post(200, 250)], 200],
+    ['null featured_timestamp counts as missing', [post(300, 400), post(200, null)], 200],
+    ['out-of-order timestamps use the minimum', [post(200), post(300)], 200],
   ])('%s', (_name, page, expected) => {
     expect(taggedPageCursor(page)).toBe(expected);
+  });
+
+  it('uses the smallest timestamp on the photography fixture (mixed featured)', () => {
+    const page = PostListSchema.parse(fx.raw.tagged.response);
+    expect(taggedPageCursor(page)).toBe(1761903000);
   });
 });
 
@@ -48,9 +54,10 @@ describe('taggedNextCursor', () => {
 });
 
 describe('useTaggedPosts', () => {
-  it('pages with before = featured_timestamp of the last post and normalises items', async () => {
+  it('pages with before = the smallest timestamp on a mixed page and normalises items', async () => {
     const requests: URL[] = [];
-    // Page 1 ends in a featured post (featured_timestamp 1761911400), as the fixture does.
+    // Page 1 ends in a featured post whose featured_timestamp (1761911400) is later than its
+    // timestamp (1761903000); using it would re-request posts already on page 1.
     const page1 = fx.raw.tagged.response;
     const page2 = [fx.raw.tagged.response[0]].map((p) => ({
       ...p,
@@ -82,7 +89,7 @@ describe('useTaggedPosts', () => {
     await act(async () => {
       await result.current.fetchNextPage();
     });
-    expect(requests[1]?.searchParams.get('before')).toBe('1761911400');
+    expect(requests[1]?.searchParams.get('before')).toBe('1761903000');
     await waitFor(() => expect(result.current.items.length).toBeGreaterThan(before));
     expect(client.getQueryState(['tagged', 'photography'])).toBeDefined();
   });
