@@ -38,7 +38,7 @@ export async function getPost(
   }
   const response = await apiFetch(`/v2/blog/${blogSegment}/posts`, {
     query: { id, npf: true, reblog_info: true },
-    auth: 'apiKey',
+    auth: options.guest ? 'apiKey' : 'auto',
     schema: BlogPostsResponseSchema,
     signal: options.signal,
   });

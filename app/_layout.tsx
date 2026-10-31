@@ -6,10 +6,12 @@ import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AuthProvider } from '@/features/auth';
-import { persistOptions, queryClient } from '@/lib/queryClient';
+import { installRateLimitToast, persistOptions, queryClient } from '@/lib/queryClient';
 import { navigationTheme } from '@/ui/navigationTheme';
-import { ToastHost } from '@/ui/primitives';
+import { toast, ToastHost } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
+
+installRateLimitToast((message) => toast.show(message));
 
 /** Deep links to modal routes (e.g. /viewer) still get the tabs underneath. */
 export const unstable_settings = { anchor: '(tabs)' };

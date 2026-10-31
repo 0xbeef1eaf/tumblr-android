@@ -1,8 +1,14 @@
+import { http, HttpResponse } from 'msw';
+import { z } from 'zod';
+
+import { apiFetch, configureApiClient } from '@/api/client';
 import { ApiError } from '@/api/errors';
+import { API, fixtures, rateLimited, server } from '@/test/msw';
 
 import {
   createQueryClient,
   createQueryPersister,
+  installRateLimitToast,
   PERSIST_MAX_AGE,
   persistOptions,
   shouldPersistQuery,
@@ -59,5 +65,23 @@ describe('queryClient', () => {
     expect(await persister.restoreClient()).toEqual(client);
     await persister.removeClient();
     expect(store.getAllKeys()).toEqual([]);
+  });
+});
+
+describe('installRateLimitToast', () => {
+  it('shows the DESIGN §7 toast before a 429 retry', async () => {
+    const restoreSleep = configureApiClient({ sleep: async () => undefined });
+    const show = jest.fn();
+    const uninstall = installRateLimitToast(show);
+    let calls = 0;
+    server.use(
+      http.get(`${API}/v2/tagged`, () =>
+        ++calls < 2 ? rateLimited(3) : HttpResponse.json(fixtures.tagged),
+      ),
+    );
+    await apiFetch('/v2/tagged', { schema: z.unknown() });
+    expect(show).toHaveBeenCalledWith('Tumblr is asking us to slow down — retrying in 3s');
+    uninstall();
+    restoreSleep();
   });
 });

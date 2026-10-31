@@ -12,7 +12,8 @@ const logger = createLogger('api');
 
 export const API_BASE_URL = 'https://api.tumblr.com';
 
-export type AuthMode = 'apiKey' | 'bearer' | 'none';
+/** `auto`: Bearer when the session has a token, else `api_key` (signed-in reads get `liked`). */
+export type AuthMode = 'apiKey' | 'bearer' | 'auto' | 'none';
 export type QueryValue = string | number | boolean | null | undefined;
 
 /** Implemented by WP4 (OAuth session). The default provider has no tokens. */
@@ -47,8 +48,10 @@ export interface ApiClientConfig {
   sleep: (ms: number) => Promise<void>;
   maxRateLimitRetries: number;
   baseBackoffMs: number;
-  /** Upper bound for a server-provided Retry-After. */
+  /** Upper bound for a server-provided Retry-After; a longer one fails at once. */
   maxRetryAfterMs: number;
+  /** Told before each 429 retry (DESIGN §7 toast). Keeps `src/api` free of UI imports. */
+  onRateLimited: (retryAfterSec: number) => void;
 }
 
 const defaultConfig: ApiClientConfig = {
@@ -57,6 +60,7 @@ const defaultConfig: ApiClientConfig = {
   maxRateLimitRetries: 3,
   baseBackoffMs: 1000,
   maxRetryAfterMs: 30_000,
+  onRateLimited: () => undefined,
 };
 
 let config: ApiClientConfig = { ...defaultConfig };
@@ -151,18 +155,21 @@ export async function apiFetch<S extends z.ZodType>(
   path: string,
   options: ApiRequestOptions<S>,
 ): Promise<z.output<S>> {
-  const { method = 'GET', query, body, bodyType = 'json', auth = 'apiKey', schema } = options;
-  const url = buildUrl(path, query, auth);
+  const { method = 'GET', query, body, bodyType = 'json', schema } = options;
   let rateLimitAttempts = 0;
   let refreshed = false;
   let token: string | null = null;
 
-  if (auth === 'bearer') {
+  if (options.auth === 'bearer' || options.auth === 'auto') {
     token = await tokenProvider.getAccessToken();
-    if (!token) {
+    if (!token && options.auth === 'bearer') {
       throw new ApiError({ status: 401, message: 'Not signed in', code: 'not_authenticated' });
     }
   }
+  // `auto` resolves once: with a token it behaves exactly like `bearer` (401 → refresh).
+  const auth: AuthMode =
+    options.auth === 'auto' ? (token ? 'bearer' : 'apiKey') : (options.auth ?? 'apiKey');
+  const url = buildUrl(path, query, auth);
 
   for (;;) {
     const headers: Record<string, string> = {
@@ -184,14 +191,15 @@ export async function apiFetch<S extends z.ZodType>(
 
     if (response.status === 429) {
       const retryAfterSec = parseRetryAfter(response.headers.get('Retry-After'));
-      if (rateLimitAttempts < config.maxRateLimitRetries) {
-        const backoff = config.baseBackoffMs * 2 ** rateLimitAttempts;
+      const tooLong = retryAfterSec !== undefined && retryAfterSec * 1000 > config.maxRetryAfterMs;
+      if (!tooLong && rateLimitAttempts < config.maxRateLimitRetries) {
         const delay =
           retryAfterSec !== undefined
-            ? Math.min(retryAfterSec * 1000, config.maxRetryAfterMs)
-            : backoff;
+            ? retryAfterSec * 1000
+            : config.baseBackoffMs * 2 ** rateLimitAttempts;
         rateLimitAttempts += 1;
         logger.warn(`429 on ${path}; retry ${rateLimitAttempts} in ${delay}ms`);
+        config.onRateLimited(Math.max(1, Math.ceil(delay / 1000)));
         await config.sleep(delay);
         continue;
       }

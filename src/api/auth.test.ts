@@ -62,6 +62,29 @@ describe('exchangeCode', () => {
     expect(bodies[0]).toMatchObject({ client_secret: 'dev-secret', client_id: 'consumer-key' });
   });
 
+  it('refuses the direct call with the secret outside development builds', async () => {
+    const globals = globalThis as { __DEV__?: boolean };
+    const previous = globals.__DEV__;
+    const bodies = captureTokenRequests(`${API}/v2/oauth2/token`);
+    const proxied = captureTokenRequests(PROXY);
+    globals.__DEV__ = false;
+    try {
+      const attempt = exchangeCode('c', 'r', { env: { ...baseEnv, tumblrClientSecret: 's' } });
+      await expect(attempt).rejects.toBeInstanceOf(AuthConfigError);
+      await expect(
+        exchangeCode('c', 'r', { env: { ...baseEnv, tumblrClientSecret: 's' } }),
+      ).rejects.toThrow(/only honoured in development/);
+      // A proxy is still fine in release builds.
+      await expect(
+        exchangeCode('c', 'r', { env: { ...baseEnv, tokenExchangeUrl: PROXY } }),
+      ).resolves.toBeDefined();
+    } finally {
+      globals.__DEV__ = previous;
+    }
+    expect(bodies).toHaveLength(0);
+    expect(proxied).toHaveLength(1);
+  });
+
   it('throws a clear error when neither proxy nor secret is configured', async () => {
     await expect(exchangeCode('c', 'r', { env: baseEnv })).rejects.toBeInstanceOf(AuthConfigError);
     await expect(exchangeCode('c', 'r', { env: baseEnv })).rejects.toThrow(

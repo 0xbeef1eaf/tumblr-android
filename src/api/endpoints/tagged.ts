@@ -20,7 +20,7 @@ export function getTagged({
 }: GetTaggedParams): Promise<Post[]> {
   return apiFetch('/v2/tagged', {
     query: { tag, before, limit, filter },
-    auth: 'apiKey',
+    auth: 'auto',
     schema: PostListSchema,
     signal,
   });

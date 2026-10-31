@@ -2,6 +2,7 @@ import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persi
 import { QueryClient, type Query } from '@tanstack/react-query';
 import type { PersistQueryClientOptions } from '@tanstack/react-query-persist-client';
 
+import { configureApiClient } from '@/api/client';
 import { ApiError } from '@/api/errors';
 
 import { env } from './env';
@@ -27,6 +28,16 @@ export function shouldPersistQuery(query: Pick<Query, 'queryKey' | 'state'>): bo
 export function shouldRetry(failureCount: number, error: unknown): boolean {
   if (error instanceof ApiError && error.status >= 400 && error.status < 500) return false;
   return failureCount < 2;
+}
+
+/** DESIGN §7 copy for a 429 that is about to be retried. */
+export function rateLimitMessage(retryAfterSec: number): string {
+  return `Tumblr is asking us to slow down — retrying in ${retryAfterSec}s`;
+}
+
+/** Route the API client's 429 retries to a toast (`show` is `toast.show` in the app). */
+export function installRateLimitToast(show: (message: string) => void): () => void {
+  return configureApiClient({ onRateLimited: (sec) => show(rateLimitMessage(sec)) });
 }
 
 export function createQueryClient(): QueryClient {

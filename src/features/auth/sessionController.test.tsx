@@ -1,5 +1,5 @@
-import { QueryClientProvider } from '@tanstack/react-query';
-import { render } from '@testing-library/react-native';
+import { QueryClientProvider, QueryObserver } from '@tanstack/react-query';
+import { render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import { AuthConfigError, createMemoryTokenStore, OAuthError, type TokenSet } from '@/api/auth';
@@ -104,6 +104,31 @@ describe('signIn', () => {
     expect(messages()).toEqual(['Signed in to Tumblr']);
   });
 
+  it('drops guest-fetched pages (no `liked`) when signing in', async () => {
+    const { controller, client } = setup(null, { authorize, exchangeCode: async () => tokens });
+    for (const root of ['tagged', 'blog', 'post', 'search']) {
+      client.setQueryData([root, 'x'], { root });
+    }
+    await controller.signIn();
+    const remaining = client
+      .getQueryCache()
+      .getAll()
+      .map((q) => q.queryKey[0]);
+    expect(remaining.sort()).toEqual(['search', 'user']);
+  });
+
+  it('refetches an on-screen tag gallery as the signed-in viewer', async () => {
+    const { controller, client } = setup(null, { authorize, exchangeCode: async () => tokens });
+    let fetches = 0;
+    const queryFn = jest.fn(async () => ({ liked: ++fetches > 1 }));
+    const observer = new QueryObserver(client, { queryKey: ['tagged', 'cats'], queryFn });
+    const unsubscribe = observer.subscribe(() => undefined);
+    await waitFor(() => expect(queryFn).toHaveBeenCalledTimes(1));
+    await controller.signIn();
+    await waitFor(() => expect(client.getQueryData(['tagged', 'cats'])).toEqual({ liked: true }));
+    unsubscribe();
+  });
+
   it('does nothing when the user cancels', async () => {
     const exchangeCode = jest.fn();
     const { controller, store } = setup(null, {
@@ -168,10 +193,11 @@ describe('signIn', () => {
 });
 
 describe('signOut', () => {
-  it('clears tokens, session, optimistic state and user-scoped queries only', async () => {
+  it('clears tokens, session, optimistic state and viewer-specific queries', async () => {
     const { controller, store, client } = setup(tokens);
     await controller.bootstrap();
-    for (const root of ['dashboard', 'likes', 'user', 'following', 'tagged', 'blog']) {
+    const roots = ['dashboard', 'likes', 'user', 'following', 'tagged', 'blog', 'post', 'search'];
+    for (const root of roots) {
       client.setQueryData([root, 'x'], { root });
     }
     useInteractionStore.getState().setLike('1', true);
@@ -185,7 +211,7 @@ describe('signOut', () => {
       .getQueryCache()
       .getAll()
       .map((q) => q.queryKey[0]);
-    expect(remaining.sort()).toEqual(['blog', 'tagged']);
+    expect(remaining.sort()).toEqual(['search']);
     await expect(controller.tokens.getAccessToken()).resolves.toBeNull();
   });
 });

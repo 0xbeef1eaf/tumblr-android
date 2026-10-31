@@ -26,11 +26,25 @@ const logger = createLogger('session');
 /** Query roots that belong to the signed-in user and are dropped on sign-out. */
 export const USER_SCOPED_QUERY_ROOTS = ['dashboard', 'likes', 'user', 'following'] as const;
 
+/**
+ * Public reads that are fetched with the session's token when there is one (`auth: 'auto'`),
+ * so their pages carry the viewer's `liked`/`followed`. Dropped on sign-in and sign-out.
+ */
+export const VIEWER_DEPENDENT_QUERY_ROOTS = ['post', 'blog', 'tagged'] as const;
+
+const hasRoot = (roots: readonly string[]) => (query: { queryKey: readonly unknown[] }) =>
+  typeof query.queryKey[0] === 'string' && roots.includes(query.queryKey[0]);
+
+/**
+ * Drop everything fetched as the previous viewer: user-scoped roots entirely; viewer-dependent
+ * roots too, except that queries on screen are reset (refetched as the new viewer) instead of
+ * being removed from under their observers.
+ */
 export function removeUserQueries(client: QueryClient): void {
-  client.removeQueries({
-    predicate: (query) =>
-      (USER_SCOPED_QUERY_ROOTS as readonly unknown[]).includes(query.queryKey[0]),
-  });
+  client.removeQueries({ predicate: hasRoot(USER_SCOPED_QUERY_ROOTS) });
+  const viewerDependent = hasRoot(VIEWER_DEPENDENT_QUERY_ROOTS);
+  client.removeQueries({ predicate: viewerDependent, type: 'inactive' });
+  void client.resetQueries({ predicate: viewerDependent, type: 'active' });
 }
 
 export interface SessionControllerDeps {
@@ -116,7 +130,10 @@ export function createSessionController(deps: SessionControllerDeps = {}): Sessi
       const result = await runAuthorize();
       if (result.status === 'cancelled') return;
       await tokens.setTokens(await exchange(result.code, result.redirectUri));
-      applyUser(await fetchUser(), true);
+      const info = await fetchUser();
+      // Guest-fetched pages lack `liked`/`followed`; refetch them with the new token.
+      removeUserQueries(client);
+      applyUser(info, true);
       toast.success('Signed in to Tumblr');
     } catch (error) {
       logger.warn('Sign-in failed', error);

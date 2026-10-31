@@ -14,7 +14,7 @@ export function blogPath(name: string): string {
 /** `GET /v2/blog/{name}/info` (API key). */
 export async function getBlogInfo(name: string, signal?: AbortSignal): Promise<BlogInfo> {
   const response = await apiFetch(`${blogPath(name)}/info`, {
-    auth: 'apiKey',
+    auth: 'auto',
     schema: BlogInfoResponseSchema,
     signal,
   });
@@ -42,7 +42,7 @@ export function getBlogPosts({
 }: GetBlogPostsParams): Promise<BlogPostsResponse> {
   return apiFetch(`${blogPath(name)}/posts`, {
     query: { npf: true, reblog_info: true, limit, before, tag, offset },
-    auth: 'apiKey',
+    auth: 'auto',
     schema: BlogPostsResponseSchema,
     signal,
   });

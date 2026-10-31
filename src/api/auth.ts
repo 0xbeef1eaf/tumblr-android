@@ -137,10 +137,23 @@ export class AuthConfigError extends Error {
   }
 }
 
-/** Resolve where to send the grant: proxy (adds the secret) or Tumblr directly (dev). */
+/** Read at call time so tests can flip it; production bundles define it as `false`. */
+function isDevBuild(): boolean {
+  return typeof __DEV__ !== 'undefined' && __DEV__;
+}
+
+/** Resolve where to send the grant: proxy (adds the secret) or Tumblr directly (dev only). */
 function resolveTokenEndpoint(e: Env): { url: string; secret?: string } {
   if (e.tokenExchangeUrl) return { url: e.tokenExchangeUrl };
-  if (e.tumblrClientSecret) return { url: TOKEN_URL, secret: e.tumblrClientSecret };
+  if (e.tumblrClientSecret) {
+    if (!isDevBuild()) {
+      throw new AuthConfigError(
+        'Sign-in is not configured for release builds: EXPO_PUBLIC_TUMBLR_CLIENT_SECRET is ' +
+          'only honoured in development. Set EXPO_PUBLIC_TOKEN_EXCHANGE_URL (token proxy).',
+      );
+    }
+    return { url: TOKEN_URL, secret: e.tumblrClientSecret };
+  }
   throw new AuthConfigError(
     'Sign-in is not configured: set EXPO_PUBLIC_TOKEN_EXCHANGE_URL (token proxy) or, ' +
       'for development builds only, EXPO_PUBLIC_TUMBLR_CLIENT_SECRET.',
