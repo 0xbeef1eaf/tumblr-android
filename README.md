@@ -14,6 +14,20 @@ zoomable viewer.
 > Not affiliated with or endorsed by Tumblr, Inc. Use of the Tumblr API is subject to the
 > [Tumblr API terms](https://www.tumblr.com/docs/en/api_agreement).
 
+## Install
+
+[**Install with Discoverium / Obtainium**](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/0xbeef1eaf/tumblr-android)
+— adds this repository as an app source so new GitHub Releases install as updates.
+[Discoverium](https://github.com/cygnusx-1-org/Discoverium) is an Obtainium fork and handles
+the same `obtainium://` links; the page behind the button opens whichever is installed, or
+explains how to get one. Or download the APK straight from
+[Releases](https://github.com/0xbeef1eaf/tumblr-android/releases).
+
+Releases are produced by the build workflow whenever a `v*` tag is pushed (see
+[Builds](#builds)). The APK is debug-signed, so allow "install unknown apps" for your
+installer. [`discoverium.yml`](discoverium.yml) holds the metadata for Discoverium's app
+catalog; listing there is a pull request adding its raw URL to Discoverium's `apps.yml`.
+
 ## Screenshots
 
 _Screenshots coming soon._ <!-- Add images under docs/screenshots/ and link them here. -->

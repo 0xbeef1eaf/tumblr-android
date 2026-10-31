@@ -1,0 +1,16 @@
+# Discoverium catalog entry (https://github.com/cygnusx-1-org/Discoverium, docs/HOWITWORKS.md).
+# To be listed, this file's raw URL is added to Discoverium's apps.yml by pull request:
+# https://raw.githubusercontent.com/0xbeef1eaf/tumblr-android/main/discoverium.yml
+app:
+  name: Tumblr Gallery
+  authors:
+    - 0xbeef1eaf
+  category: social
+  description: >-
+    A gallery-first Tumblr client. Tags, blogs, search and your dashboard are masonry grids of
+    images, GIFs and video, each opening in a full-screen zoomable viewer. Browse as a guest with
+    your own Tumblr API key, or sign in for likes, follows and reblogs.
+  icon: https://raw.githubusercontent.com/0xbeef1eaf/tumblr-android/main/assets/icon.png
+  id: com.tumblrgallery.app
+  releases:
+    url: https://github.com/0xbeef1eaf/tumblr-android/releases
