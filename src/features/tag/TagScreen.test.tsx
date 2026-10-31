@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
 import { Share } from 'react-native';
 
+import { credentialsStore } from '@/api/credentials';
 import { errorHandlers, server } from '@/test/msw';
 import { renderWithProviders } from '@/test/render';
 
@@ -77,5 +78,23 @@ describe('TagScreen', () => {
     await renderWithProviders(<TagScreen tag="photography" />);
     expect(await screen.findByTestId('tag-error')).toBeTruthy();
     expect(screen.getByLabelText('Retry')).toBeTruthy();
+  });
+
+  it('shows the Connect card as the empty state and fires no request without a key', async () => {
+    const requests: string[] = [];
+    server.use(
+      http.get('https://api.tumblr.com/v2/tagged', ({ request }) => {
+        requests.push(request.url);
+        return HttpResponse.json({ meta: { status: 200, msg: 'OK' }, response: [] });
+      }),
+    );
+    await credentialsStore.clear();
+    await renderWithProviders(<TagScreen tag="photography" />);
+    expect(screen.getByTestId('connect-app')).toBeTruthy();
+    expect(screen.getByText('Connect your Tumblr app')).toBeTruthy();
+    expect(screen.queryByTestId('tag-error')).toBeNull();
+    await fireEvent.press(screen.getByLabelText('Open Settings'));
+    expect(mockPush).toHaveBeenCalledWith('/settings');
+    expect(requests).toHaveLength(0);
   });
 });

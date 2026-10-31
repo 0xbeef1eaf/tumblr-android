@@ -1,11 +1,13 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
+import { credentialsStore } from '@/api/credentials';
 import { MISSING_BLOG } from '@/test/msw';
 import { renderWithProviders } from '@/test/render';
 
 import { BlogScreen } from './BlogScreen';
 
 const mockSetParams = jest.fn();
+const mockPush = jest.fn();
 const mockToggle = jest.fn();
 const mockAuth: {
   status: 'guest' | 'signedIn';
@@ -14,7 +16,7 @@ const mockAuth: {
 
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
-  useRouter: () => ({ push: jest.fn(), setParams: mockSetParams }),
+  useRouter: () => ({ push: mockPush, setParams: mockSetParams }),
 }));
 jest.mock(
   '@/features/gallery',
@@ -98,5 +100,14 @@ describe('BlogScreen', () => {
     mockAuth.useFollow = () => ({ isFollowing: true, toggle: mockToggle, isPending: false });
     await renderWithProviders(<BlogScreen name="northlight-studio" />);
     expect(await screen.findByText('Following')).toBeTruthy();
+  });
+
+  it('shows the Connect card instead of fetching when no consumer key is set', async () => {
+    await credentialsStore.clear();
+    await renderWithProviders(<BlogScreen name="northlight-studio" />);
+    expect(screen.getByTestId('connect-app')).toBeTruthy();
+    expect(screen.queryByTestId('masonry')).toBeNull();
+    await fireEvent.press(screen.getByLabelText('Open Settings'));
+    expect(mockPush).toHaveBeenCalledWith('/settings');
   });
 });

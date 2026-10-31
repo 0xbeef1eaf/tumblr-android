@@ -8,11 +8,11 @@ export function blogInfoQueryKey(name: string) {
 }
 
 /** `GET /blog/{name}/info`, cached for an hour. */
-export function useBlogInfo(name: string) {
+export function useBlogInfo(name: string, enabled = true) {
   return useQuery({
     queryKey: blogInfoQueryKey(name),
     queryFn: ({ signal }) => getBlogInfo(name, signal),
     staleTime: HOUR,
-    enabled: name.length > 0,
+    enabled: enabled && name.length > 0,
   });
 }

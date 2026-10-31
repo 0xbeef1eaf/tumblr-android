@@ -1,6 +1,7 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
 
+import { credentialsStore } from '@/api/credentials';
 import { fixtures, API, server } from '@/test/msw';
 import { renderWithProviders } from '@/test/render';
 import { useSearchHistoryStore } from '@/features/search/searchHistoryStore';
@@ -154,5 +155,30 @@ describe('ExploreScreen', () => {
     mockAuth.useFollowing = () => ({ blogs: [{ name: 'x' }], isLoading: false });
     await renderExplore(60_000);
     expect(screen.queryByTestId('following-row')).toBeNull();
+  });
+
+  it('shows the Connect card instead of starter tags when no consumer key is set', async () => {
+    const requests: string[] = [];
+    server.use(
+      http.get(`${API}/v2/tagged`, ({ request }) => {
+        requests.push(request.url);
+        return HttpResponse.json(fixtures.tagged);
+      }),
+    );
+    await credentialsStore.clear();
+    await renderWithProviders(<ExploreScreen previewStaggerMs={0} />);
+    expect(screen.getByText('Connect your Tumblr app')).toBeTruthy();
+    expect(screen.queryByTestId('starter-tags')).toBeNull();
+    await fireEvent.press(screen.getByLabelText('Open Settings'));
+    expect(mockPush).toHaveBeenCalledWith('/settings');
+    expect(requests).toHaveLength(0);
+
+    // Entering a key in Settings swaps the card for the starter tags.
+    await act(() => credentialsStore.save({ consumerKey: 'mine' }));
+    expect(screen.queryByTestId('connect-app')).toBeNull();
+    expect(screen.getByTestId('starter-tags')).toBeTruthy();
+    await waitFor(() => expect(requests.length).toBeGreaterThan(0));
+    expect(new URL(requests[0] ?? '').searchParams.get('api_key')).toBe('mine');
+    await waitFor(() => expect(requests).toHaveLength(10));
   });
 });

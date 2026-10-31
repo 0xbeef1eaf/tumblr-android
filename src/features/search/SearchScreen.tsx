@@ -3,6 +3,8 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useIsLiked, useToggleLike } from '@/features/auth';
+import { ConnectAppCard } from '@/features/credentials/ConnectAppCard';
+import { useApiKeyStatus } from '@/features/credentials/credentialsState';
 import { MasonryGallery } from '@/features/gallery';
 import { MessageView } from '@/features/tag/MessageView';
 import { normalizeTag } from '@/features/tag/normalizeTag';
@@ -27,7 +29,8 @@ export function searchMode(text: string, submittedTag: string | null): SearchMod
 
 function Results({ tag }: { tag: string }) {
   const [kind, setKind] = useState<KindFilter>('all');
-  const paging = useTaggedPosts(tag);
+  const apiKey = useApiKeyStatus();
+  const paging = useTaggedPosts(tag, apiKey.hasApiKey);
   const onLike = useToggleLike();
   const isLiked = useIsLiked();
   const failed = paging.error != null && paging.items.length === 0 && !paging.isLoading;
@@ -44,7 +47,7 @@ function Results({ tag }: { tag: string }) {
       ) : (
         <MasonryGallery
           items={paging.items}
-          isLoading={paging.isLoading}
+          isLoading={paging.isLoading || apiKey.loading}
           isFetchingNextPage={paging.isFetchingNextPage}
           hasNextPage={paging.hasNextPage}
           onEndReached={() => void paging.fetchNextPage()}
@@ -53,7 +56,7 @@ function Results({ tag }: { tag: string }) {
           kindFilter={kind}
           onLike={onLike}
           isLiked={isLiked}
-          emptyState={<TagEmptyState tag={tag} />}
+          emptyState={apiKey.missing ? <ConnectAppCard /> : <TagEmptyState tag={tag} />}
         />
       )}
     </View>

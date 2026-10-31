@@ -4,6 +4,8 @@ import { StyleSheet, View } from 'react-native';
 
 import { isNotFoundError } from '@/api/errors';
 import { useIsLiked, useToggleLike } from '@/features/auth';
+import { ConnectAppCard } from '@/features/credentials/ConnectAppCard';
+import { useApiKeyStatus } from '@/features/credentials/credentialsState';
 import { MasonryGallery } from '@/features/gallery';
 import { FilterRow, type KindFilter } from '@/features/search/FilterRow';
 import { MessageView } from '@/features/tag/MessageView';
@@ -25,8 +27,10 @@ export function BlogScreen({ name, tag }: BlogScreenProps) {
   const { colors } = useTheme();
   const router = useRouter();
   const [kind, setKind] = useState<KindFilter>('all');
-  const info = useBlogInfo(name);
-  const paging = useBlogPosts(name, tag);
+  const apiKey = useApiKeyStatus();
+  // No consumer key: fire nothing and show the Connect card in place of the gallery.
+  const info = useBlogInfo(name, apiKey.hasApiKey);
+  const paging = useBlogPosts(name, tag, apiKey.hasApiKey);
   const onLike = useToggleLike();
   const isLiked = useIsLiked();
 
@@ -48,7 +52,9 @@ export function BlogScreen({ name, tag }: BlogScreenProps) {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]} testID="blog-screen">
       <Stack.Screen options={{ title: info.data?.title || name }} />
-      {missing ? (
+      {apiKey.missing ? (
+        <ConnectAppCard />
+      ) : missing ? (
         <MessageView
           icon="eye-off-outline"
           title="This blog doesn't exist or is private"
@@ -66,7 +72,7 @@ export function BlogScreen({ name, tag }: BlogScreenProps) {
       ) : (
         <MasonryGallery
           items={paging.items}
-          isLoading={paging.isLoading}
+          isLoading={paging.isLoading || apiKey.loading}
           isFetchingNextPage={paging.isFetchingNextPage}
           hasNextPage={paging.hasNextPage}
           onEndReached={() => void paging.fetchNextPage()}

@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { avatarUrl } from '@/api/endpoints/blog';
 import { useSession } from '@/features/auth';
+import { ConnectAppCard } from '@/features/credentials/ConnectAppCard';
+import { useApiKeyStatus } from '@/features/credentials/credentialsState';
 import { Pressable, Text } from '@/ui/primitives';
 import { radius, spacing, useTheme } from '@/ui/theme';
 
@@ -55,10 +57,14 @@ export interface ExploreScreenProps {
   previewStaggerMs?: number;
 }
 
-/** Explore tab (`/`): recents, followed blogs and curated starter tags (DESIGN §3.1). */
+/**
+ * Explore tab (`/`): recents, followed blogs and curated starter tags (DESIGN §3.1). Without a
+ * consumer key the starter tags (which need `api_key`) give way to the "Connect" card.
+ */
 export function ExploreScreen({ previewStaggerMs }: ExploreScreenProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const apiKey = useApiKeyStatus();
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -76,12 +82,16 @@ export function ExploreScreen({ previewStaggerMs }: ExploreScreenProps) {
         </View>
         <RecentChips />
         <FollowingRow />
-        <View style={styles.section}>
-          <Text variant="heading" style={styles.sectionTitle}>
-            Start here
-          </Text>
-          <StarterTags staggerMs={previewStaggerMs} />
-        </View>
+        {apiKey.missing ? (
+          <ConnectAppCard />
+        ) : apiKey.hasApiKey ? (
+          <View style={styles.section}>
+            <Text variant="heading" style={styles.sectionTitle}>
+              Start here
+            </Text>
+            <StarterTags staggerMs={previewStaggerMs} />
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );

@@ -3,6 +3,8 @@ import { useCallback, useState } from 'react';
 import { Share, StyleSheet, View } from 'react-native';
 
 import { useIsLiked, useToggleLike } from '@/features/auth';
+import { ConnectAppCard } from '@/features/credentials/ConnectAppCard';
+import { useApiKeyStatus } from '@/features/credentials/credentialsState';
 import { MasonryGallery } from '@/features/gallery';
 import { FilterRow, type KindFilter } from '@/features/search/FilterRow';
 import { Icon, Pressable } from '@/ui/primitives';
@@ -26,7 +28,9 @@ export function TagScreen({ tag: rawTag }: TagScreenProps) {
   const { colors } = useTheme();
   const tag = normalizeTag(rawTag);
   const [kind, setKind] = useState<KindFilter>('all');
-  const paging = useTaggedPosts(tag);
+  const apiKey = useApiKeyStatus();
+  // No consumer key: no request at all; the gallery's empty state becomes the Connect card.
+  const paging = useTaggedPosts(tag, apiKey.hasApiKey);
   const onLike = useToggleLike();
   const isLiked = useIsLiked();
 
@@ -62,7 +66,7 @@ export function TagScreen({ tag: rawTag }: TagScreenProps) {
       ) : (
         <MasonryGallery
           items={paging.items}
-          isLoading={paging.isLoading}
+          isLoading={paging.isLoading || apiKey.loading}
           isFetchingNextPage={paging.isFetchingNextPage}
           hasNextPage={paging.hasNextPage}
           onEndReached={() => void paging.fetchNextPage()}
@@ -71,7 +75,7 @@ export function TagScreen({ tag: rawTag }: TagScreenProps) {
           kindFilter={kind}
           onLike={onLike}
           isLiked={isLiked}
-          emptyState={<TagEmptyState tag={tag} />}
+          emptyState={apiKey.missing ? <ConnectAppCard /> : <TagEmptyState tag={tag} />}
         />
       )}
     </View>
