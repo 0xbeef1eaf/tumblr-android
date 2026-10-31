@@ -1,0 +1,48 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_TUMBLR_API_KEY": "replace-with-your-consumer-key",
+        "EXPO_PUBLIC_TOKEN_EXCHANGE_URL": "https://your-worker.example.workers.dev/token"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_TUMBLR_API_KEY": "replace-with-your-consumer-key",
+        "EXPO_PUBLIC_TOKEN_EXCHANGE_URL": "https://your-worker.example.workers.dev/token"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_TUMBLR_API_KEY": "replace-with-your-consumer-key",
+        "EXPO_PUBLIC_TOKEN_EXCHANGE_URL": "https://your-worker.example.workers.dev/token"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./play-service-account.json",
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    }
+  }
+}

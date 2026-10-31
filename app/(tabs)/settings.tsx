@@ -1,6 +1,6 @@
-import { PlaceholderScreen } from '@/ui/PlaceholderScreen';
+import { SettingsScreen } from '@/features/settings/SettingsScreen';
 
-/** Settings tab — placeholder; filled in by a later work package (see docs/PLAN.md). */
-export default function SettingsScreen() {
-  return <PlaceholderScreen route="(tabs)/settings" />;
+/** Settings tab; see src/features/settings. */
+export default function SettingsRoute() {
+  return <SettingsScreen />;
 }
