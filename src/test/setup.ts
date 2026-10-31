@@ -1,3 +1,5 @@
+import { credentialsStore } from '@/api/credentials';
+
 import { server } from './msw';
 
 /* ---------- native module mocks ---------- */
@@ -132,5 +134,10 @@ jest.mock('expo-video', () => {
 /* ---------- msw ---------- */
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+// Every test starts with a user-entered consumer key (no secret), so guest requests carry
+// `api_key=test`. Tests for other credential states clear or replace it explicitly.
+beforeEach(async () => {
+  await credentialsStore.save({ consumerKey: 'test' });
+});
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());

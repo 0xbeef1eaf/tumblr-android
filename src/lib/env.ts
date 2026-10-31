@@ -9,13 +9,18 @@ const emptyToUndefined = (value: unknown) =>
   typeof value === 'string' && value.trim() === '' ? undefined : value;
 
 export const EnvSchema = z.object({
-  EXPO_PUBLIC_TUMBLR_API_KEY: z.string().min(1, 'EXPO_PUBLIC_TUMBLR_API_KEY is required'),
+  EXPO_PUBLIC_TUMBLR_API_KEY: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   EXPO_PUBLIC_TOKEN_EXCHANGE_URL: z.preprocess(emptyToUndefined, z.url().optional()),
   EXPO_PUBLIC_TUMBLR_CLIENT_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
 });
 
+/**
+ * Build-time fallbacks. All optional: normally the user enters their own Tumblr app's
+ * consumer key/secret in Settings (`src/api/credentials.ts`); these only pre-configure a
+ * distributed build.
+ */
 export interface Env {
-  tumblrApiKey: string;
+  tumblrApiKey?: string;
   tokenExchangeUrl?: string;
   tumblrClientSecret?: string;
   appVersion: string;
@@ -24,14 +29,9 @@ export interface Env {
 
 export type RawEnv = Partial<Record<keyof z.input<typeof EnvSchema>, string | undefined>>;
 
-/** Validate a raw env record. In tests a missing API key defaults to `'test'`. */
+/** Validate a raw env record. Every value is optional; a malformed proxy URL still throws. */
 export function parseEnv(raw: RawEnv, options: { isTest: boolean; appVersion: string }): Env {
-  const input = {
-    ...raw,
-    EXPO_PUBLIC_TUMBLR_API_KEY:
-      emptyToUndefined(raw.EXPO_PUBLIC_TUMBLR_API_KEY) ?? (options.isTest ? 'test' : undefined),
-  };
-  const result = EnvSchema.safeParse(input);
+  const result = EnvSchema.safeParse(raw);
   if (!result.success) {
     const issues = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Invalid environment configuration — ${issues}. See .env.example.`);

@@ -6,8 +6,15 @@ import {
 } from 'expo-auth-session';
 import * as Crypto from 'expo-crypto';
 
-import { AUTH_DISCOVERY, OAUTH_SCOPES, OAuthError, parseAuthorizationResponse } from '@/api/auth';
-import { env } from '@/lib/env';
+import {
+  AUTH_DISCOVERY,
+  AuthConfigError,
+  MISSING_KEY_MESSAGE,
+  OAUTH_SCOPES,
+  OAuthError,
+  parseAuthorizationResponse,
+} from '@/api/auth';
+import { getEffectiveCredentials } from '@/api/credentials';
 
 export const REDIRECT_SCHEME = 'tumblrgallery';
 export const REDIRECT_PATH = 'auth/callback';
@@ -38,6 +45,7 @@ export interface AuthPromptResult {
 export interface AuthorizeDeps {
   generateState?: () => Promise<string>;
   redirectUri?: string;
+  /** Defaults to the effective consumer key (Settings, else the build env). */
   clientId?: string;
   createRequest?: (config: AuthRequestConfig) => AuthPrompt;
 }
@@ -51,10 +59,12 @@ export type AuthorizeResult =
  * Resolves `{ status: 'cancelled' }` if the user backs out; throws `OAuthError` otherwise.
  */
 export async function authorize(deps: AuthorizeDeps = {}): Promise<AuthorizeResult> {
+  const clientId = deps.clientId ?? getEffectiveCredentials().consumerKey;
+  if (!clientId) throw new AuthConfigError(MISSING_KEY_MESSAGE);
   const state = await (deps.generateState ?? generateState)();
   const redirectUri = deps.redirectUri ?? createRedirectUri();
   const config: AuthRequestConfig = {
-    clientId: deps.clientId ?? env.tumblrApiKey,
+    clientId,
     scopes: [...OAUTH_SCOPES],
     redirectUri,
     usePKCE: false,

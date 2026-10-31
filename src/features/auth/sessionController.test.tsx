@@ -22,7 +22,12 @@ function setup(initial: TokenSet | null = null, overrides = {}) {
   const store = createMemoryTokenStore(initial);
   const client = createTestQueryClient();
   const fetchUser = jest.fn(async () => userInfo);
-  const controller = createSessionController({ store, fetchUser, ...overrides });
+  const controller = createSessionController({
+    store,
+    fetchUser,
+    checkConfig: () => undefined,
+    ...overrides,
+  });
   controller.attachQueryClient(client);
   return { store, client, fetchUser, controller };
 }

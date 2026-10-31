@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 
 import {
+  assertSignInConfigured,
   AuthConfigError,
   exchangeCode as exchangeCodeRequest,
   OAuthError,
@@ -11,6 +12,7 @@ import {
 import { getUserInfo } from '@/api/endpoints/user';
 import { isApiError } from '@/api/errors';
 import type { UserInfo } from '@/api/schemas/user';
+import { openSettings } from '@/features/credentials/navigation';
 import { createLogger } from '@/lib/log';
 import { queryClient as defaultQueryClient } from '@/lib/queryClient';
 import { toast } from '@/ui/primitives/toastStore';
@@ -54,12 +56,15 @@ export interface SessionControllerDeps {
   refresh?: (refreshToken: string) => Promise<TokenSet>;
   fetchUser?: () => Promise<UserInfo>;
   now?: () => number;
+  /** Throws `AuthConfigError` when sign-in cannot complete; checked before the browser opens. */
+  checkConfig?: () => void;
 }
 
 export interface SessionController {
   tokens: TokenManager;
   attachQueryClient(client: QueryClient): void;
-  bootstrap(): Promise<void>;
+  /** Restore the stored session; waits for `ready` (the credentials load) first. */
+  bootstrap(ready?: Promise<unknown>): Promise<void>;
   signIn(): Promise<void>;
   signOut(): Promise<void>;
 }
@@ -79,6 +84,7 @@ export function createSessionController(deps: SessionControllerDeps = {}): Sessi
   const fetchUser = deps.fetchUser ?? (() => getUserInfo());
   const runAuthorize = deps.authorize ?? (() => authorize());
   const exchange = deps.exchangeCode ?? ((code, uri) => exchangeCodeRequest(code, uri));
+  const checkConfig = deps.checkConfig ?? (() => assertSignInConfigured());
   let client: QueryClient = defaultQueryClient;
   let signInInFlight: Promise<void> | null = null;
 
@@ -104,9 +110,11 @@ export function createSessionController(deps: SessionControllerDeps = {}): Sessi
     client.setQueryData(['user'], info);
   };
 
-  const bootstrap = async (): Promise<void> => {
+  const bootstrap = async (ready?: Promise<unknown>): Promise<void> => {
     const auth = useAuthStore.getState();
     auth.setLoading();
+    // Token refresh needs the consumer key/secret, so credentials load first.
+    await ready?.catch(() => undefined);
     const stored = await tokens.loadTokens();
     if (!stored) {
       useAuthStore.getState().setGuest();
@@ -126,6 +134,16 @@ export function createSessionController(deps: SessionControllerDeps = {}): Sessi
   };
 
   const doSignIn = async (): Promise<void> => {
+    try {
+      checkConfig();
+    } catch (error) {
+      // Missing key/secret: nothing to undo, just point the user at Settings.
+      toast.error(signInErrorMessage(error), {
+        durationMs: 6000,
+        action: { label: 'Settings', onPress: openSettings },
+      });
+      return;
+    }
     try {
       const result = await runAuthorize();
       if (result.status === 'cancelled') return;

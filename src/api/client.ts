@@ -3,10 +3,18 @@ import type { z } from 'zod';
 import { env } from '@/lib/env';
 import { createLogger } from '@/lib/log';
 
-import { ApiError, NotFoundError } from './errors';
+import { getEffectiveCredentials } from './credentials';
+import { ApiError, MissingCredentialsError, NotFoundError } from './errors';
 import { EnvelopeSchema, type ApiErrorDetail } from './schemas/envelope';
 
-export { ApiError, NotFoundError, isApiError, isNotFoundError } from './errors';
+export {
+  ApiError,
+  MissingCredentialsError,
+  NotFoundError,
+  isApiError,
+  isMissingCredentialsError,
+  isNotFoundError,
+} from './errors';
 
 const logger = createLogger('api');
 
@@ -89,6 +97,7 @@ export interface ApiRequestOptions<S extends z.ZodType> {
   signal?: AbortSignal;
 }
 
+/** Throws `MissingCredentialsError` in `apiKey` mode when no consumer key is configured. */
 export function buildUrl(
   path: string,
   query: Record<string, QueryValue> | undefined,
@@ -99,7 +108,12 @@ export function buildUrl(
     if (value === undefined || value === null || value === '') continue;
     url.searchParams.set(key, String(value));
   }
-  if (auth === 'apiKey') url.searchParams.set('api_key', env.tumblrApiKey);
+  if (auth === 'apiKey') {
+    // Read at request time: the user can enter or change their key in Settings at any moment.
+    const apiKey = getEffectiveCredentials().consumerKey;
+    if (!apiKey) throw new MissingCredentialsError();
+    url.searchParams.set('api_key', apiKey);
+  }
   return url.toString();
 }
 

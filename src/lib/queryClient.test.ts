@@ -2,7 +2,7 @@ import { http, HttpResponse } from 'msw';
 import { z } from 'zod';
 
 import { apiFetch, configureApiClient } from '@/api/client';
-import { ApiError } from '@/api/errors';
+import { ApiError, MissingCredentialsError } from '@/api/errors';
 import { API, fixtures, rateLimited, server } from '@/test/msw';
 
 import {
@@ -44,6 +44,7 @@ describe('queryClient', () => {
     [0, new ApiError({ status: 429 }), false],
     [0, new ApiError({ status: 503 }), true],
     [0, new TypeError('Network request failed'), true],
+    [0, new MissingCredentialsError(), false],
     [2, new TypeError('Network request failed'), false],
   ])('retry(%i, %p) → %p', (count, error, expected) => {
     expect(shouldRetry(count, error)).toBe(expected);

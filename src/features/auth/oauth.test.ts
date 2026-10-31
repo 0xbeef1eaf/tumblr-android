@@ -1,4 +1,5 @@
-import { OAuthError } from '@/api/auth';
+import { AuthConfigError, OAuthError } from '@/api/auth';
+import { credentialsStore } from '@/api/credentials';
 
 import { authorize, generateState, type AuthPromptResult } from './oauth';
 
@@ -51,6 +52,22 @@ describe('authorize', () => {
       authorizationEndpoint: 'https://www.tumblr.com/oauth2/authorize',
       tokenEndpoint: 'https://api.tumblr.com/v2/oauth2/token',
     });
+  });
+
+  it("defaults clientId to the user's consumer key", async () => {
+    await credentialsStore.save({ consumerKey: 'my-own-key', consumerSecret: 's' });
+    const fake = fakeRequest((state) => ({ type: 'success', params: { code: 'abc', state } }));
+    const { clientId: _ignored, ...rest } = deps(fake);
+    await authorize(rest);
+    expect(fake.configs[0]).toMatchObject({ clientId: 'my-own-key' });
+  });
+
+  it('refuses to open the browser without a consumer key', async () => {
+    await credentialsStore.clear();
+    const fake = fakeRequest((state) => ({ type: 'success', params: { code: 'abc', state } }));
+    const { clientId: _ignored, ...rest } = deps(fake);
+    await expect(authorize(rest)).rejects.toBeInstanceOf(AuthConfigError);
+    expect(fake.configs).toHaveLength(0);
   });
 
   it('rejects a response whose state does not match (CSRF)', async () => {

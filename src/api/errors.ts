@@ -51,3 +51,19 @@ export function isApiError(error: unknown): error is ApiError {
 export function isNotFoundError(error: unknown): error is NotFoundError {
   return error instanceof NotFoundError;
 }
+
+/**
+ * A guest (`api_key`) request was attempted with no consumer key configured — neither in
+ * Settings nor baked into the build. Thrown before any network call.
+ */
+export class MissingCredentialsError extends Error {
+  constructor(message = "Add your Tumblr app's consumer key in Settings → Tumblr API") {
+    super(message);
+    this.name = 'MissingCredentialsError';
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+export function isMissingCredentialsError(error: unknown): error is MissingCredentialsError {
+  return error instanceof MissingCredentialsError;
+}

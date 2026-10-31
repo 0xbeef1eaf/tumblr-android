@@ -4,6 +4,7 @@ import { env as defaultEnv, type Env } from '@/lib/env';
 import { createLogger } from '@/lib/log';
 
 import { userAgent } from './client';
+import { getEffectiveCredentials, type EffectiveCredentials } from './credentials';
 import { ApiError } from './errors';
 
 /**
@@ -109,9 +110,10 @@ export function isExpiring(tokens: TokenSet, now = Date.now(), skewMs = 60_000):
   return tokens.expiresAt - now <= skewMs;
 }
 
-export function buildAuthorizeUrl(state: string, redirectUri = REDIRECT_URI, e: Env = defaultEnv) {
+/** Authorize URL for a consumer key (the interactive flow uses expo-auth-session instead). */
+export function buildAuthorizeUrl(state: string, redirectUri: string, clientId: string): string {
   const params = new URLSearchParams({
-    client_id: e.tumblrApiKey,
+    client_id: clientId,
     response_type: 'code',
     scope: OAUTH_SCOPES.join(' '),
     state,
@@ -122,6 +124,8 @@ export function buildAuthorizeUrl(state: string, redirectUri = REDIRECT_URI, e: 
 
 export interface AuthDeps {
   env?: Env;
+  /** Defaults to `getEffectiveCredentials(env)`, read at call time. */
+  credentials?: EffectiveCredentials;
   now?: () => number;
 }
 
@@ -137,36 +141,64 @@ export class AuthConfigError extends Error {
   }
 }
 
+export const MISSING_KEY_MESSAGE =
+  "Add your Tumblr app's consumer key and secret in Settings to sign in";
+export const MISSING_SECRET_MESSAGE =
+  "Add your Tumblr app's consumer secret in Settings to sign in";
+export const RELEASE_ENV_SECRET_MESSAGE =
+  "This build's EXPO_PUBLIC_TUMBLR_CLIENT_SECRET is only honoured in development. " +
+  "Add your own Tumblr app's consumer key and secret in Settings to sign in.";
+
 /** Read at call time so tests can flip it; production bundles define it as `false`. */
 function isDevBuild(): boolean {
   return typeof __DEV__ !== 'undefined' && __DEV__;
 }
 
-/** Resolve where to send the grant: proxy (adds the secret) or Tumblr directly (dev only). */
-function resolveTokenEndpoint(e: Env): { url: string; secret?: string } {
-  if (e.tokenExchangeUrl) return { url: e.tokenExchangeUrl };
-  if (e.tumblrClientSecret) {
-    if (!isDevBuild()) {
-      throw new AuthConfigError(
-        'Sign-in is not configured for release builds: EXPO_PUBLIC_TUMBLR_CLIENT_SECRET is ' +
-          'only honoured in development. Set EXPO_PUBLIC_TOKEN_EXCHANGE_URL (token proxy).',
-      );
-    }
-    return { url: TOKEN_URL, secret: e.tumblrClientSecret };
+export interface TokenEndpoint {
+  url: string;
+  clientId: string;
+  /** Sent only on a direct call to Tumblr; a proxy adds its own. */
+  secret?: string;
+}
+
+/**
+ * Where to send a grant:
+ * 1. a consumer secret entered in Settings → Tumblr directly, in every build (it is the
+ *    user's own app on their own device);
+ * 2. a secret baked into the build (`EXPO_PUBLIC_TUMBLR_CLIENT_SECRET`) → Tumblr directly,
+ *    development builds only;
+ * 3. `EXPO_PUBLIC_TOKEN_EXCHANGE_URL` → the proxy, which adds the secret;
+ * 4. otherwise an `AuthConfigError` pointing the user at Settings.
+ */
+export function resolveTokenEndpoint(
+  credentials: EffectiveCredentials = getEffectiveCredentials(),
+  e: Env = defaultEnv,
+): TokenEndpoint {
+  const { consumerKey, consumerSecret, source } = credentials;
+  if (!consumerKey) throw new AuthConfigError(MISSING_KEY_MESSAGE);
+  if (consumerSecret && (source === 'user' || isDevBuild())) {
+    return { url: TOKEN_URL, clientId: consumerKey, secret: consumerSecret };
   }
-  throw new AuthConfigError(
-    'Sign-in is not configured: set EXPO_PUBLIC_TOKEN_EXCHANGE_URL (token proxy) or, ' +
-      'for development builds only, EXPO_PUBLIC_TUMBLR_CLIENT_SECRET.',
-  );
+  if (e.tokenExchangeUrl) return { url: e.tokenExchangeUrl, clientId: consumerKey };
+  throw new AuthConfigError(consumerSecret ? RELEASE_ENV_SECRET_MESSAGE : MISSING_SECRET_MESSAGE);
+}
+
+/** Throws `AuthConfigError` when sign-in cannot complete (checked before opening the browser). */
+export function assertSignInConfigured(deps: Pick<AuthDeps, 'env' | 'credentials'> = {}): void {
+  const e = deps.env ?? defaultEnv;
+  resolveTokenEndpoint(deps.credentials ?? getEffectiveCredentials(e), e);
 }
 
 async function postGrant(grant: Grant, deps: AuthDeps): Promise<TokenSet> {
   const e = deps.env ?? defaultEnv;
   const now = deps.now ?? Date.now;
-  const { url, secret } = resolveTokenEndpoint(e);
+  const { url, clientId, secret } = resolveTokenEndpoint(
+    deps.credentials ?? getEffectiveCredentials(e),
+    e,
+  );
   const body = {
     ...grant,
-    client_id: e.tumblrApiKey,
+    client_id: clientId,
     ...(secret ? { client_secret: secret } : {}),
   };
   const response = await fetch(url, {

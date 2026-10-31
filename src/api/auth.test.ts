@@ -5,23 +5,30 @@ import type { Env } from '@/lib/env';
 import { API, server } from '@/test/msw';
 
 import {
+  assertSignInConfigured,
   AuthConfigError,
   buildAuthorizeUrl,
   createMemoryTokenStore,
   exchangeCode,
   isExpiring,
+  MISSING_KEY_MESSAGE,
+  MISSING_SECRET_MESSAGE,
   OAuthError,
   parseAuthorizationResponse,
   AUTH_DISCOVERY,
   refreshToken,
+  RELEASE_ENV_SECRET_MESSAGE,
+  resolveTokenEndpoint,
   secureTokenStore,
   tokenSetFromResponse,
   type TokenSet,
 } from './auth';
+import { credentialsStore, type EffectiveCredentials } from './credentials';
 import { ApiError } from './errors';
 
 const PROXY = 'https://token-proxy.example.workers.dev/token';
 const baseEnv: Env = { tumblrApiKey: 'consumer-key', appVersion: '1.0.0', isTest: true };
+const proxyOnly = { consumerKey: 'consumer-key', source: 'env' } as const;
 const now = () => 1_000_000;
 
 function captureTokenRequests(url: string) {
@@ -35,11 +42,35 @@ function captureTokenRequests(url: string) {
   return bodies;
 }
 
+const userCreds = (consumerSecret?: string): EffectiveCredentials => ({
+  consumerKey: 'my-key',
+  consumerSecret,
+  source: 'user',
+});
+const envCreds: EffectiveCredentials = {
+  consumerKey: 'consumer-key',
+  consumerSecret: 'env-secret',
+  source: 'env',
+};
+
+/** Run `fn` as a release build (`__DEV__ === false`). */
+async function asRelease(fn: () => Promise<void>) {
+  const globals = globalThis as { __DEV__?: boolean };
+  const previous = globals.__DEV__;
+  globals.__DEV__ = false;
+  try {
+    await fn();
+  } finally {
+    globals.__DEV__ = previous;
+  }
+}
+
 describe('exchangeCode', () => {
-  it('posts to the proxy without a client secret', async () => {
+  it('posts to the proxy without a client secret when none is configured', async () => {
     const bodies = captureTokenRequests(PROXY);
     const tokens = await exchangeCode('the-code', 'tumblrgallery://auth/callback', {
-      env: { ...baseEnv, tokenExchangeUrl: PROXY, tumblrClientSecret: 'ignored' },
+      env: { ...baseEnv, tokenExchangeUrl: PROXY },
+      credentials: { consumerKey: 'consumer-key', source: 'env' },
       now,
     });
     expect(bodies[0]).toEqual({
@@ -56,40 +87,84 @@ describe('exchangeCode', () => {
     });
   });
 
-  it('falls back to Tumblr directly with the dev secret', async () => {
-    const bodies = captureTokenRequests(`${API}/v2/oauth2/token`);
-    await exchangeCode('c', 'r', { env: { ...baseEnv, tumblrClientSecret: 'dev-secret' } });
-    expect(bodies[0]).toMatchObject({ client_secret: 'dev-secret', client_id: 'consumer-key' });
-  });
-
-  it('refuses the direct call with the secret outside development builds', async () => {
-    const globals = globalThis as { __DEV__?: boolean };
-    const previous = globals.__DEV__;
-    const bodies = captureTokenRequests(`${API}/v2/oauth2/token`);
+  it('calls Tumblr directly with a user-entered secret, even in release builds', async () => {
+    const direct = captureTokenRequests(`${API}/v2/oauth2/token`);
     const proxied = captureTokenRequests(PROXY);
-    globals.__DEV__ = false;
-    try {
-      const attempt = exchangeCode('c', 'r', { env: { ...baseEnv, tumblrClientSecret: 's' } });
-      await expect(attempt).rejects.toBeInstanceOf(AuthConfigError);
-      await expect(
-        exchangeCode('c', 'r', { env: { ...baseEnv, tumblrClientSecret: 's' } }),
-      ).rejects.toThrow(/only honoured in development/);
-      // A proxy is still fine in release builds.
-      await expect(
-        exchangeCode('c', 'r', { env: { ...baseEnv, tokenExchangeUrl: PROXY } }),
-      ).resolves.toBeDefined();
-    } finally {
-      globals.__DEV__ = previous;
-    }
-    expect(bodies).toHaveLength(0);
-    expect(proxied).toHaveLength(1);
+    await asRelease(async () => {
+      await exchangeCode('c', 'r', {
+        env: { ...baseEnv, tokenExchangeUrl: PROXY },
+        credentials: userCreds('my-secret'),
+      });
+    });
+    expect(direct[0]).toMatchObject({ client_id: 'my-key', client_secret: 'my-secret' });
+    expect(proxied).toHaveLength(0);
   });
 
-  it('throws a clear error when neither proxy nor secret is configured', async () => {
-    await expect(exchangeCode('c', 'r', { env: baseEnv })).rejects.toBeInstanceOf(AuthConfigError);
-    await expect(exchangeCode('c', 'r', { env: baseEnv })).rejects.toThrow(
-      /EXPO_PUBLIC_TOKEN_EXCHANGE_URL/,
+  it('reads the effective credentials from the store by default', async () => {
+    const direct = captureTokenRequests(`${API}/v2/oauth2/token`);
+    await credentialsStore.save({ consumerKey: 'stored-key', consumerSecret: 'stored-secret' });
+    await exchangeCode('c', 'r');
+    expect(direct[0]).toMatchObject({ client_id: 'stored-key', client_secret: 'stored-secret' });
+  });
+
+  it('uses a build-time secret directly in development builds', async () => {
+    const bodies = captureTokenRequests(`${API}/v2/oauth2/token`);
+    await exchangeCode('c', 'r', { env: baseEnv, credentials: envCreds });
+    expect(bodies[0]).toMatchObject({ client_secret: 'env-secret', client_id: 'consumer-key' });
+  });
+
+  it('ignores a build-time secret in release builds (proxy, else a config error)', async () => {
+    const direct = captureTokenRequests(`${API}/v2/oauth2/token`);
+    const proxied = captureTokenRequests(PROXY);
+    await asRelease(async () => {
+      await expect(exchangeCode('c', 'r', { env: baseEnv, credentials: envCreds })).rejects.toThrow(
+        RELEASE_ENV_SECRET_MESSAGE,
+      );
+      await expect(
+        exchangeCode('c', 'r', {
+          env: { ...baseEnv, tokenExchangeUrl: PROXY },
+          credentials: envCreds,
+        }),
+      ).resolves.toBeDefined();
+    });
+    expect(direct).toHaveLength(0);
+    expect(proxied).toHaveLength(1);
+    expect(proxied[0]).not.toHaveProperty('client_secret');
+  });
+
+  it('asks for the consumer secret when there is a key but no secret and no proxy', async () => {
+    const attempt = exchangeCode('c', 'r', { env: baseEnv, credentials: userCreds() });
+    await expect(attempt).rejects.toBeInstanceOf(AuthConfigError);
+    await expect(
+      exchangeCode('c', 'r', { env: baseEnv, credentials: userCreds() }),
+    ).rejects.toThrow("Add your Tumblr app's consumer secret in Settings to sign in");
+    expect(MISSING_SECRET_MESSAGE).toBe(
+      "Add your Tumblr app's consumer secret in Settings to sign in",
     );
+  });
+
+  it('asks for key and secret when nothing is configured', async () => {
+    await expect(
+      exchangeCode('c', 'r', { env: baseEnv, credentials: { source: 'none' } }),
+    ).rejects.toThrow(MISSING_KEY_MESSAGE);
+    expect(() => assertSignInConfigured({ env: baseEnv, credentials: { source: 'none' } })).toThrow(
+      AuthConfigError,
+    );
+    expect(() =>
+      assertSignInConfigured({ env: baseEnv, credentials: userCreds('s') }),
+    ).not.toThrow();
+  });
+
+  it('resolves endpoints without network access', () => {
+    expect(resolveTokenEndpoint(userCreds('s'), baseEnv)).toEqual({
+      url: 'https://api.tumblr.com/v2/oauth2/token',
+      clientId: 'my-key',
+      secret: 's',
+    });
+    expect(resolveTokenEndpoint(userCreds(), { ...baseEnv, tokenExchangeUrl: PROXY })).toEqual({
+      url: PROXY,
+      clientId: 'my-key',
+    });
   });
 
   it('accepts an enveloped proxy response', async () => {
@@ -98,7 +173,10 @@ describe('exchangeCode', () => {
         HttpResponse.json({ meta: { status: 200, msg: 'OK' }, response: oauthToken }),
       ),
     );
-    const tokens = await exchangeCode('c', 'r', { env: { ...baseEnv, tokenExchangeUrl: PROXY } });
+    const tokens = await exchangeCode('c', 'r', {
+      env: { ...baseEnv, tokenExchangeUrl: PROXY },
+      credentials: proxyOnly,
+    });
     expect(tokens.accessToken).toBe(oauthToken.access_token);
   });
 
@@ -112,7 +190,10 @@ describe('exchangeCode', () => {
       ),
     );
     await expect(
-      exchangeCode('c', 'r', { env: { ...baseEnv, tokenExchangeUrl: PROXY } }),
+      exchangeCode('c', 'r', {
+        env: { ...baseEnv, tokenExchangeUrl: PROXY },
+        credentials: proxyOnly,
+      }),
     ).rejects.toMatchObject({ status: 400, code: 'invalid_grant', detail: 'code expired' });
   });
 });
@@ -128,7 +209,7 @@ describe('refreshToken', () => {
         return HttpResponse.json({ access_token: 'new', expires_in: 2520 });
       }),
     );
-    const tokens = await refreshToken('old-rt', { env, now });
+    const tokens = await refreshToken('old-rt', { env, credentials: proxyOnly, now });
     expect(bodies[0]).toMatchObject({ grant_type: 'refresh_token', refresh_token: 'old-rt' });
     expect(tokens).toMatchObject({ accessToken: 'new', refreshToken: 'old-rt' });
   });
@@ -137,7 +218,9 @@ describe('refreshToken', () => {
     server.use(
       http.post(PROXY, () => HttpResponse.json({ error: 'invalid_grant' }, { status: 401 })),
     );
-    const error = await refreshToken('dead', { env }).catch((e: unknown) => e);
+    const error = await refreshToken('dead', { env, credentials: proxyOnly }).catch(
+      (e: unknown) => e,
+    );
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({ status: 401, message: 'Refresh token is no longer valid' });
   });
@@ -158,7 +241,7 @@ describe('token helpers', () => {
   });
 
   it('builds the authorize URL with scopes, state and redirect', () => {
-    const url = new URL(buildAuthorizeUrl('xyz', 'tumblrgallery://auth/callback', baseEnv));
+    const url = new URL(buildAuthorizeUrl('xyz', 'tumblrgallery://auth/callback', 'consumer-key'));
     expect(url.origin + url.pathname).toBe('https://www.tumblr.com/oauth2/authorize');
     expect(Object.fromEntries(url.searchParams)).toEqual({
       client_id: 'consumer-key',

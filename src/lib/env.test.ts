@@ -35,12 +35,13 @@ describe('parseEnv', () => {
     expect(parsed.tumblrClientSecret).toBeUndefined();
   });
 
-  it('requires the API key outside tests', () => {
-    expect(() => parseEnv({}, opts)).toThrow(/EXPO_PUBLIC_TUMBLR_API_KEY/);
+  it('accepts an empty environment (credentials come from Settings)', () => {
+    expect(parseEnv({}, opts)).toEqual({ appVersion: '2.0.0', isTest: false });
+    expect(parseEnv({ EXPO_PUBLIC_TUMBLR_API_KEY: '  ' }, opts).tumblrApiKey).toBeUndefined();
   });
 
-  it("defaults the API key to 'test' under jest", () => {
-    expect(parseEnv({}, { ...opts, isTest: true }).tumblrApiKey).toBe('test');
+  it('trims the API key', () => {
+    expect(parseEnv({ EXPO_PUBLIC_TUMBLR_API_KEY: ' key ' }, opts).tumblrApiKey).toBe('key');
   });
 
   it('rejects a malformed proxy URL', () => {
@@ -52,8 +53,8 @@ describe('parseEnv', () => {
     ).toThrow(/EXPO_PUBLIC_TOKEN_EXCHANGE_URL/);
   });
 
-  it('exposes the runtime env', () => {
-    expect(env.tumblrApiKey).toBe('test');
+  it('exposes the runtime env (no baked-in key under jest)', () => {
+    expect(env.tumblrApiKey).toBeUndefined();
     expect(env.isTest).toBe(true);
   });
 });

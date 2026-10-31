@@ -3,7 +3,7 @@ import { QueryClient, type Query } from '@tanstack/react-query';
 import type { PersistQueryClientOptions } from '@tanstack/react-query-persist-client';
 
 import { configureApiClient } from '@/api/client';
-import { ApiError } from '@/api/errors';
+import { ApiError, MissingCredentialsError } from '@/api/errors';
 
 import { env } from './env';
 import { queryCacheStorage, type KeyValueStore } from './storage';
@@ -26,6 +26,7 @@ export function shouldPersistQuery(query: Pick<Query, 'queryKey' | 'state'>): bo
 
 /** Retry transient failures twice; never retry client errors (429 is handled in apiFetch). */
 export function shouldRetry(failureCount: number, error: unknown): boolean {
+  if (error instanceof MissingCredentialsError) return false;
   if (error instanceof ApiError && error.status >= 400 && error.status < 500) return false;
   return failureCount < 2;
 }
