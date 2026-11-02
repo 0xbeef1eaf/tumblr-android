@@ -30,10 +30,25 @@ jobs:
       contents: write
     env:
       CI: 1
-      # CPU architectures to build. Add x86_64 for emulator builds (slower, larger APK).
-      ABIS: arm64-v8a,armeabi-v7a
-      # Same list, comma-free: GitHub cache keys cannot contain commas.
-      ABIS_KEY: arm64-v8a_armeabi-v7a
+      # CPU architectures to build. arm64-v8a covers phones and tablets from the last ~8 years;
+      # add armeabi-v7a for 32-bit devices or x86_64 for emulators (each roughly doubles the
+      # native compile and grows the APK).
+      ABIS: arm64-v8a
+      # R8 minification: ~5–6 min of the build in exchange for a ~40% smaller APK. Set to
+      # 'false' for faster, larger builds.
+      MINIFY: 'true'
+      # ccache: content-hashed compiler cache shared between runs via actions/cache below.
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPILERCHECK: content
+      CCACHE_NOHASHDIR: 'true'
+      CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime,pch_defines
+      CCACHE_MAXSIZE: 2G
+      # CMake >= 3.17 initialises CMAKE_<LANG>_COMPILER_LAUNCHER from these environment
+      # variables at configure time, and AGP's CMake invocations inherit the job environment.
+      # This reaches every native library's CMake project; Gradle-side injection of the same
+      # flags runs too late (AGP captures each project's arguments before projectsEvaluated).
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -62,41 +77,54 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The C++ of the app module and of Reanimated, Worklets, Nitro/MMKV, Screens etc. is
+      # ~70% of a cold build. Timestamp-based caches (.cxx/ninja) are useless here because
+      # prebuild and checkout refresh every input, so compile results are cached by content
+      # with ccache instead. The key includes the run id so every run saves its additions;
+      # restore-keys falls back to the newest cache for the same lockfile, then any.
+      - name: Install ccache
+        run: |
+          sudo apt-get install -y --no-install-recommends ccache \
+            || (sudo apt-get update && sudo apt-get install -y --no-install-recommends ccache)
+          ccache --version | head -1
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-${{ runner.os }}-${{ env.ABIS }}-${{ hashFiles('package-lock.json') }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ env.ABIS }}-${{ hashFiles('package-lock.json') }}-
+            ccache-${{ runner.os }}-${{ env.ABIS }}-
+
+      - name: Reset ccache statistics
+        run: ccache --zero-stats
+
       # CNG: android/ is generated here and never committed (it is gitignored).
       - name: Generate native project
         run: npx expo prebuild --platform android --no-install
-
-      # The C++ of Reanimated, Worklets, Nitro/MMKV, Screens etc. is the slow part. CMake/ninja
-      # outputs live in .cxx folders at stable paths, so restoring them lets ninja skip
-      # unchanged objects. Keyed on the lockfile and the ABI list; a stale hit only costs a
-      # rebuild of what changed.
-      - name: Restore native build cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            android/app/.cxx
-            node_modules/**/android/.cxx
-            node_modules/**/android/build
-          key: cxx-${{ runner.os }}-${{ env.ABIS_KEY }}-${{ hashFiles('package-lock.json', 'app.config.ts') }}
-          restore-keys: |
-            cxx-${{ runner.os }}-${{ env.ABIS_KEY }}-
 
       # The Expo template's `release` build type signs with the debug keystore
       # (signingConfigs.debug). The APK installs on any device but cannot go to Google Play
       # and cannot update a build signed with a different key. See README "Builds" for a
       # real keystore (EAS credentials or Gradle signing via secrets).
       #
-      # Only the two ARM ABIs are built (phones and tablets); x86/x86_64 are emulator-only
-      # and double the native compile. Build cache, parallelism and a larger JVM heap are
-      # on; the daemon stays on for the one invocation.
+      # Gradle's task-output cache and parallel execution are enabled with the CLI flags
+      # (`-Porg.gradle.*` would only set project properties, which Gradle ignores for these);
+      # setup-gradle persists the cache. Every CMake compile goes through ccache via the
+      # CMAKE_*_COMPILER_LAUNCHER environment (see job env).
       - name: Assemble release APK
         working-directory: android
         run: >-
           ./gradlew assembleRelease
+          --build-cache --parallel
           -PreactNativeArchitectures=${{ env.ABIS }}
-          -Porg.gradle.caching=true
-          -Porg.gradle.parallel=true
+          -Pandroid.enableMinifyInReleaseBuilds=${{ env.MINIFY }}
           -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g"
+
+      - name: ccache statistics
+        if: always()
+        run: ccache --show-stats
 
       - name: Check the requested release tag matches package.json
         if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
