@@ -6,5 +6,7 @@ compatibility_date = "2025-10-01"
 #   npx wrangler secret put TUMBLR_CLIENT_SECRET
 #   npx wrangler secret put TUMBLR_CLIENT_ID        # optional; falls back to the app's client_id
 [vars]
-# Exact redirect URIs the app may send (comma separated). Recommended.
-ALLOWED_REDIRECT_URIS = "tumblrgallery://auth/callback"
+# Exact redirect URIs the app may send (comma separated). Recommended. This is the app's
+# OAUTH_REDIRECT_URI (src/api/auth.ts): an https identifier the in-app WebView intercepts.
+# Forks that set EXPO_PUBLIC_OAUTH_REDIRECT_URI list theirs here instead.
+ALLOWED_REDIRECT_URIS = "https://0xbeef1eaf.github.io/tumblr-android/auth/callback"

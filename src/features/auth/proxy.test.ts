@@ -1,3 +1,4 @@
+import { OAUTH_REDIRECT_URI } from '@/api/auth';
 import oauthToken from '@/api/fixtures/oauth.token.json';
 // The Worker is a standalone package; it is exercised here so CI covers it.
 import {
@@ -12,7 +13,7 @@ import {
 const env: Env = {
   TUMBLR_CLIENT_ID: 'consumer-key',
   TUMBLR_CLIENT_SECRET: 'super-secret',
-  ALLOWED_REDIRECT_URIS: 'tumblrgallery://auth/callback',
+  ALLOWED_REDIRECT_URIS: OAUTH_REDIRECT_URI,
 };
 
 function tokenRequest(body: unknown, init: RequestInit = {}): Request {
@@ -42,7 +43,7 @@ describe('token proxy', () => {
       tokenRequest({
         grant_type: 'authorization_code',
         code: 'abc',
-        redirect_uri: 'tumblrgallery://auth/callback',
+        redirect_uri: OAUTH_REDIRECT_URI,
         client_id: 'ignored-by-proxy',
       }),
       env,
@@ -55,7 +56,7 @@ describe('token proxy', () => {
     expect(Object.fromEntries(calls[0]?.body ?? [])).toEqual({
       grant_type: 'authorization_code',
       code: 'abc',
-      redirect_uri: 'tumblrgallery://auth/callback',
+      redirect_uri: OAUTH_REDIRECT_URI,
       client_id: 'consumer-key',
       client_secret: 'super-secret',
     });
@@ -99,15 +100,26 @@ describe('token proxy', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it('rejects redirect URIs outside the allow-list', async () => {
-    const { fetchImpl } = upstreamOk();
-    const response = await handleRequest(
-      tokenRequest({ grant_type: 'authorization_code', code: 'x', redirect_uri: 'https://evil' }),
-      env,
-      { fetchImpl },
-    );
-    expect(response.status).toBe(400);
-    expect(fetchImpl).not.toHaveBeenCalled();
+  it.each(['https://evil', 'tumblrgallery://auth/callback'])(
+    'rejects redirect URIs outside the allow-list (%s)',
+    async (redirectUri) => {
+      const { fetchImpl } = upstreamOk();
+      const response = await handleRequest(
+        tokenRequest({ grant_type: 'authorization_code', code: 'x', redirect_uri: redirectUri }),
+        env,
+        { fetchImpl },
+      );
+      expect(response.status).toBe(400);
+      expect(fetchImpl).not.toHaveBeenCalled();
+    },
+  );
+
+  it('ships a wrangler.toml allow-list matching the app callback URL', () => {
+    const fs = jest.requireActual<typeof import('fs')>('fs');
+    const path = jest.requireActual<typeof import('path')>('path');
+    const toml = fs.readFileSync(path.join(__dirname, '../../../proxy/wrangler.toml'), 'utf8');
+    const match = /^ALLOWED_REDIRECT_URIS\s*=\s*"([^"]*)"/m.exec(toml);
+    expect(match?.[1]?.split(',').map((u) => u.trim())).toEqual([OAUTH_REDIRECT_URI]);
   });
 
   it("relays Tumblr's error status and body", async () => {
