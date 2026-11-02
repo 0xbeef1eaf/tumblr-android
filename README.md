@@ -152,8 +152,9 @@ The workflow therefore:
 
 - builds only `arm64-v8a` (`ABIS` env in the workflow; add `armeabi-v7a` for 32-bit devices
   or `x86_64` for emulators, each roughly doubling the native compile and the APK);
-- routes every CMake compile through [ccache](https://ccache.dev) via
-  [`.github/gradle/ccache.init.gradle`](.github/gradle/ccache.init.gradle) and keeps the
+- routes every CMake compile through [ccache](https://ccache.dev) by exporting
+  `CMAKE_C_COMPILER_LAUNCHER`/`CMAKE_CXX_COMPILER_LAUNCHER=ccache` to the job (CMake reads
+  them at configure time, so every native library's project picks them up) and keeps the
   cache between runs with `actions/cache`. ccache hashes file contents, so it survives the
   fresh checkout and `expo prebuild` that defeat timestamp-based caches;
 - keeps Gradle's task cache and gives it a 4 GB heap.
@@ -161,8 +162,8 @@ The workflow therefore:
 A warm run should take about 10–12 minutes against 30+ cold; the "ccache statistics" step
 in the job log shows the hit rate. A larger runner (`runs-on: ubuntu-latest-4-cores`, paid)
 is the remaining lever for cold builds. Locally: `cd android && ./gradlew assembleRelease
--PreactNativeArchitectures=arm64-v8a` (add `-I ../.github/gradle/ccache.init.gradle` if you
-have ccache installed).
+-PreactNativeArchitectures=arm64-v8a` (export the two `CMAKE_*_COMPILER_LAUNCHER=ccache`
+variables first if you have ccache installed).
 
 > **Debug-signed.** The Expo template's `release` build type signs with the debug keystore.
 > The APK installs on any device (allow "install unknown apps"), but it cannot be uploaded

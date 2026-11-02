@@ -40,6 +40,12 @@ jobs:
       CCACHE_NOHASHDIR: 'true'
       CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime,pch_defines
       CCACHE_MAXSIZE: 2G
+      # CMake >= 3.17 initialises CMAKE_<LANG>_COMPILER_LAUNCHER from these environment
+      # variables at configure time, and AGP's CMake invocations inherit the job environment.
+      # This reaches every native library's CMake project; Gradle-side injection of the same
+      # flags runs too late (AGP captures each project's arguments before projectsEvaluated).
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -100,13 +106,12 @@ jobs:
       # and cannot update a build signed with a different key. See README "Builds" for a
       # real keystore (EAS credentials or Gradle signing via secrets).
       #
-      # Build cache, parallelism and a larger JVM heap are on; the init script routes all
-      # CMake compiles through ccache (see .github/gradle/ccache.init.gradle).
+      # Build cache, parallelism and a larger JVM heap are on; every CMake compile goes
+      # through ccache via the CMAKE_*_COMPILER_LAUNCHER environment (see job env).
       - name: Assemble release APK
         working-directory: android
         run: >-
           ./gradlew assembleRelease
-          -I ${{ github.workspace }}/.github/gradle/ccache.init.gradle
           -PreactNativeArchitectures=${{ env.ABIS }}
           -Porg.gradle.caching=true
           -Porg.gradle.parallel=true
