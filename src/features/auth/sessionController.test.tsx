@@ -2,7 +2,13 @@ import { QueryClientProvider, QueryObserver } from '@tanstack/react-query';
 import { render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
-import { AuthConfigError, createMemoryTokenStore, OAuthError, type TokenSet } from '@/api/auth';
+import {
+  AuthConfigError,
+  createMemoryTokenStore,
+  OAUTH_REDIRECT_URI,
+  OAuthError,
+  type TokenSet,
+} from '@/api/auth';
 import { getTokenProvider, setTokenProvider } from '@/api/client';
 import { UserInfoResponseSchema } from '@/api/schemas/user';
 import { fixtures } from '@/test/msw';
@@ -94,14 +100,17 @@ describe('signIn', () => {
   const authorize = async () => ({
     status: 'success' as const,
     code: 'the-code',
-    redirectUri: 'tumblrgallery://auth/callback',
+    redirectUri: OAUTH_REDIRECT_URI,
   });
 
   it('exchanges the code, persists tokens and loads the user', async () => {
     const exchangeCode = jest.fn(async () => tokens);
     const { controller, store, client } = setup(null, { authorize, exchangeCode });
     await controller.signIn();
-    expect(exchangeCode).toHaveBeenCalledWith('the-code', 'tumblrgallery://auth/callback');
+    expect(exchangeCode).toHaveBeenCalledWith(
+      'the-code',
+      'https://0xbeef1eaf.github.io/tumblr-android/auth/callback',
+    );
     await expect(store.load()).resolves.toEqual(tokens);
     expect(useAuthStore.getState()).toMatchObject({ status: 'signedIn' });
     expect(client.getQueryData(['user'])).toEqual(userInfo);

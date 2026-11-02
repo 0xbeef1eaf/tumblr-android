@@ -4,3 +4,4 @@
 delete process.env.EXPO_PUBLIC_TUMBLR_API_KEY;
 delete process.env.EXPO_PUBLIC_TUMBLR_CLIENT_SECRET;
 delete process.env.EXPO_PUBLIC_TOKEN_EXCHANGE_URL;
+delete process.env.EXPO_PUBLIC_OAUTH_REDIRECT_URI;

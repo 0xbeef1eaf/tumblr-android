@@ -56,7 +56,7 @@ export interface SessionControllerDeps {
   refresh?: (refreshToken: string) => Promise<TokenSet>;
   fetchUser?: () => Promise<UserInfo>;
   now?: () => number;
-  /** Throws `AuthConfigError` when sign-in cannot complete; checked before the browser opens. */
+  /** Throws `AuthConfigError` when sign-in cannot complete; checked before the sign-in WebView opens. */
   checkConfig?: () => void;
 }
 

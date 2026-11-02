@@ -1,28 +1,19 @@
-import {
-  AuthRequest,
-  makeRedirectUri,
-  type AuthDiscoveryDocument,
-  type AuthRequestConfig,
-} from 'expo-auth-session';
 import * as Crypto from 'expo-crypto';
+import { router } from 'expo-router';
 
 import {
-  AUTH_DISCOVERY,
   AuthConfigError,
+  buildAuthorizeUrl,
+  getOAuthRedirectUri,
   MISSING_KEY_MESSAGE,
   OAUTH_SCOPES,
-  OAuthError,
-  parseAuthorizationResponse,
 } from '@/api/auth';
 import { getEffectiveCredentials } from '@/api/credentials';
 
-export const REDIRECT_SCHEME = 'tumblrgallery';
-export const REDIRECT_PATH = 'auth/callback';
+import { useOAuthFlowStore, type OAuthFlowResult } from './oauthFlowStore';
 
-/** `tumblrgallery://auth/callback` in a standalone build (an `exp://` URL in Expo Go). */
-export function createRedirectUri(): string {
-  return makeRedirectUri({ scheme: REDIRECT_SCHEME, path: REDIRECT_PATH });
-}
+/** The modal route that hosts the sign-in WebView (`app/auth/sign-in.tsx`). */
+export const SIGN_IN_ROUTE = '/auth/sign-in';
 
 /** 128 bits of CSPRNG output as hex: the OAuth `state` (CSRF token). */
 export async function generateState(): Promise<string> {
@@ -30,68 +21,36 @@ export async function generateState(): Promise<string> {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/** The slice of `AuthRequest` the flow needs; injectable so tests need no browser. */
-export interface AuthPrompt {
-  promptAsync(discovery: AuthDiscoveryDocument): Promise<AuthPromptResult>;
-}
-
-/** Structural subset of expo-auth-session's `AuthSessionResult`. */
-export interface AuthPromptResult {
-  type: string;
-  params?: Record<string, string>;
-  error?: { message?: string } | null;
-}
-
 export interface AuthorizeDeps {
   generateState?: () => Promise<string>;
+  /** Defaults to `getOAuthRedirectUri()` (the https callback identifier). */
   redirectUri?: string;
   /** Defaults to the effective consumer key (Settings, else the build env). */
   clientId?: string;
-  createRequest?: (config: AuthRequestConfig) => AuthPrompt;
+  /** Presents the sign-in screen; defaults to `router.push(SIGN_IN_ROUTE)`. */
+  openSignIn?: () => void;
 }
 
-export type AuthorizeResult =
-  { status: 'success'; code: string; redirectUri: string } | { status: 'cancelled' };
+export type AuthorizeResult = OAuthFlowResult;
 
 /**
- * Run the Tumblr authorization-code flow in the system browser. Tumblr does not document
- * PKCE, so `usePKCE` is off; the random `state` is verified on return instead.
- * Resolves `{ status: 'cancelled' }` if the user backs out; throws `OAuthError` otherwise.
+ * Run the Tumblr authorization-code flow in the in-app WebView: publish the request to
+ * `useOAuthFlowStore`, present `/auth/sign-in`, and wait for that screen to intercept the
+ * callback URL. Resolves `{ status: 'cancelled' }` if the user backs out; rejects with
+ * `OAuthError` on a state mismatch or a provider error.
  */
 export async function authorize(deps: AuthorizeDeps = {}): Promise<AuthorizeResult> {
   const clientId = deps.clientId ?? getEffectiveCredentials().consumerKey;
   if (!clientId) throw new AuthConfigError(MISSING_KEY_MESSAGE);
   const state = await (deps.generateState ?? generateState)();
-  const redirectUri = deps.redirectUri ?? createRedirectUri();
-  const config: AuthRequestConfig = {
-    clientId,
-    scopes: [...OAUTH_SCOPES],
-    redirectUri,
-    usePKCE: false,
-    state,
-  };
-  const request = deps.createRequest ? deps.createRequest(config) : new AuthRequest(config);
-  const result = await request.promptAsync(AUTH_DISCOVERY);
-
-  switch (result.type) {
-    case 'success':
-      return {
-        status: 'success',
-        code: parseAuthorizationResponse(result.params ?? {}, state),
-        redirectUri,
-      };
-    case 'error': {
-      const params = result.params ?? {};
-      // A state mismatch must never be reported as a plain provider error.
-      if (params.state !== undefined && params.state !== state) {
-        throw new OAuthError('state_mismatch', 'Sign-in response did not match the request');
-      }
-      throw new OAuthError(
-        'provider_error',
-        result.error?.message ?? params.error_description ?? params.error ?? 'Sign-in failed',
-      );
-    }
-    default:
-      return { status: 'cancelled' };
+  const redirectUri = deps.redirectUri ?? getOAuthRedirectUri();
+  const url = buildAuthorizeUrl({ clientId, redirectUri, state, scopes: OAUTH_SCOPES });
+  const flow = useOAuthFlowStore.getState();
+  const result = flow.begin({ url, state, redirectUri });
+  try {
+    (deps.openSignIn ?? (() => router.push(SIGN_IN_ROUTE)))();
+  } catch (error) {
+    flow.fail(error instanceof Error ? error : new Error('Could not open the sign-in screen'));
   }
+  return result;
 }

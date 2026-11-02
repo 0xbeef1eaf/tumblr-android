@@ -2,6 +2,7 @@ import { credentialsStore } from '@/api/credentials';
 
 import { server } from './msw';
 import { resetMockNetworkState } from './network';
+import { resetWebViewMock } from './webview';
 
 /* ---------- native module mocks ---------- */
 
@@ -138,6 +139,12 @@ jest.mock(
   () => jest.requireActual<typeof import('./network')>('./network').expoNetworkMock,
 );
 
+// Records props; tests drive navigation with the helpers in src/test/webview.ts.
+jest.mock(
+  'react-native-webview',
+  () => jest.requireActual<typeof import('./webview')>('./webview').webViewMock,
+);
+
 /* ---------- msw ---------- */
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -145,6 +152,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 // `api_key=test`. Tests for other credential states clear or replace it explicitly.
 beforeEach(async () => {
   resetMockNetworkState();
+  resetWebViewMock();
   await credentialsStore.save({ consumerKey: 'test' });
 });
 afterEach(() => server.resetHandlers());

@@ -53,6 +53,19 @@ describe('parseEnv', () => {
     ).toThrow(/EXPO_PUBLIC_TOKEN_EXCHANGE_URL/);
   });
 
+  it('reads an https callback URL override and rejects other schemes', () => {
+    const fork = 'https://fork.example.org/tumblr/callback';
+    expect(parseEnv({ EXPO_PUBLIC_OAUTH_REDIRECT_URI: fork }, opts).oauthRedirectUri).toBe(fork);
+    expect(
+      parseEnv({ EXPO_PUBLIC_OAUTH_REDIRECT_URI: ' ' }, opts).oauthRedirectUri,
+    ).toBeUndefined();
+    for (const bad of ['tumblrgallery://auth/callback', 'http://fork.example.org/cb', 'nope']) {
+      expect(() => parseEnv({ EXPO_PUBLIC_OAUTH_REDIRECT_URI: bad }, opts)).toThrow(
+        /EXPO_PUBLIC_OAUTH_REDIRECT_URI/,
+      );
+    }
+  });
+
   it('exposes the runtime env (no baked-in key under jest)', () => {
     expect(env.tumblrApiKey).toBeUndefined();
     expect(env.isTest).toBe(true);

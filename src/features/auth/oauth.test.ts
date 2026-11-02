@@ -1,113 +1,150 @@
-import { AuthConfigError, OAuthError } from '@/api/auth';
+import { router } from 'expo-router';
+
+import { AuthConfigError, OAUTH_REDIRECT_URI } from '@/api/auth';
 import { credentialsStore } from '@/api/credentials';
 
-import { authorize, generateState, type AuthPromptResult } from './oauth';
+import { authorize, generateState, SIGN_IN_ROUTE, type AuthorizeDeps } from './oauth';
+import { useOAuthFlowStore } from './oauthFlowStore';
 
 // The jest-expo native mock returns all-zero bytes; use real randomness to test uniqueness.
 jest.mock('expo-crypto', () => ({
   getRandomBytesAsync: async (count: number) =>
     new Uint8Array(jest.requireActual<typeof import('crypto')>('crypto').randomBytes(count)),
 }));
+jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
-const REDIRECT = 'tumblrgallery://auth/callback';
+const CALLBACK = 'https://0xbeef1eaf.github.io/tumblr-android/auth/callback';
 
-function fakeRequest(result: (state: string) => AuthPromptResult) {
-  const configs: Record<string, unknown>[] = [];
-  const discoveries: unknown[] = [];
-  const createRequest = (config: { state?: string }) => {
-    configs.push(config as Record<string, unknown>);
-    return {
-      promptAsync: async (discovery: unknown) => {
-        discoveries.push(discovery);
-        return result(config.state as string);
-      },
-    };
-  };
-  return { createRequest, configs, discoveries };
+const openSignIn = jest.fn();
+const deps: AuthorizeDeps = {
+  generateState: async () => 'state-123',
+  clientId: 'consumer-key',
+  openSignIn,
+};
+
+/** Start `authorize()` and wait until it has published its request to the store. */
+async function start(overrides: AuthorizeDeps = {}) {
+  const result = authorize({ ...deps, ...overrides });
+  // Swallow here; each test asserts on `result` itself.
+  result.catch(() => undefined);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  return { result };
 }
 
-const deps = (fake: ReturnType<typeof fakeRequest>) => ({
-  generateState: async () => 'state-123',
-  redirectUri: REDIRECT,
-  clientId: 'consumer-key',
-  createRequest: fake.createRequest,
-});
+const flow = () => useOAuthFlowStore.getState();
+
+afterEach(() => flow().cancel());
 
 describe('authorize', () => {
-  it('requests code flow without PKCE and returns the verified code', async () => {
-    const fake = fakeRequest((state) => ({ type: 'success', params: { code: 'abc', state } }));
-    await expect(authorize(deps(fake))).resolves.toEqual({
+  it('publishes the authorize request, opens the sign-in screen and resolves the code', async () => {
+    const { result } = await start();
+    const request = flow().request;
+    expect(request).toMatchObject({ state: 'state-123', redirectUri: CALLBACK });
+    const url = new URL(request?.url ?? '');
+    expect(url.origin + url.pathname).toBe('https://www.tumblr.com/oauth2/authorize');
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      client_id: 'consumer-key',
+      response_type: 'code',
+      scope: 'basic write offline_access',
+      state: 'state-123',
+      redirect_uri: CALLBACK,
+    });
+    expect(openSignIn).toHaveBeenCalledTimes(1);
+
+    flow().complete(`${CALLBACK}?code=abc&state=state-123`);
+    await expect(result).resolves.toEqual({
       status: 'success',
       code: 'abc',
-      redirectUri: REDIRECT,
+      redirectUri: CALLBACK,
     });
-    expect(fake.configs[0]).toEqual({
-      clientId: 'consumer-key',
-      scopes: ['basic', 'write', 'offline_access'],
-      redirectUri: REDIRECT,
-      usePKCE: false,
-      state: 'state-123',
-    });
-    expect(fake.discoveries[0]).toEqual({
-      authorizationEndpoint: 'https://www.tumblr.com/oauth2/authorize',
-      tokenEndpoint: 'https://api.tumblr.com/v2/oauth2/token',
-    });
+    expect(flow().request).toBeNull();
+  });
+
+  it('pushes the sign-in route by default', async () => {
+    await start({ openSignIn: undefined });
+    expect(router.push).toHaveBeenCalledWith(SIGN_IN_ROUTE);
+    expect(SIGN_IN_ROUTE).toBe('/auth/sign-in');
   });
 
   it("defaults clientId to the user's consumer key", async () => {
     await credentialsStore.save({ consumerKey: 'my-own-key', consumerSecret: 's' });
-    const fake = fakeRequest((state) => ({ type: 'success', params: { code: 'abc', state } }));
-    const { clientId: _ignored, ...rest } = deps(fake);
-    await authorize(rest);
-    expect(fake.configs[0]).toMatchObject({ clientId: 'my-own-key' });
+    await start({ clientId: undefined });
+    expect(flow().request?.url).toContain('client_id=my-own-key');
   });
 
-  it('refuses to open the browser without a consumer key', async () => {
+  it('refuses to open the sign-in screen without a consumer key', async () => {
     await credentialsStore.clear();
-    const fake = fakeRequest((state) => ({ type: 'success', params: { code: 'abc', state } }));
-    const { clientId: _ignored, ...rest } = deps(fake);
-    await expect(authorize(rest)).rejects.toBeInstanceOf(AuthConfigError);
-    expect(fake.configs).toHaveLength(0);
+    await expect(authorize({ ...deps, clientId: undefined })).rejects.toBeInstanceOf(
+      AuthConfigError,
+    );
+    expect(openSignIn).not.toHaveBeenCalled();
+    expect(flow().request).toBeNull();
   });
 
-  it('rejects a response whose state does not match (CSRF)', async () => {
-    const fake = fakeRequest(() => ({ type: 'success', params: { code: 'abc', state: 'forged' } }));
-    await expect(authorize(deps(fake))).rejects.toMatchObject({
-      name: 'OAuthError',
-      code: 'state_mismatch',
+  it('rejects a callback whose state does not match (CSRF)', async () => {
+    const { result } = await start();
+    flow().complete(`${CALLBACK}?code=abc&state=forged`);
+    await expect(result).rejects.toMatchObject({ name: 'OAuthError', code: 'state_mismatch' });
+  });
+
+  it('maps access_denied and provider errors', async () => {
+    const { result: denied } = await start();
+    flow().complete(`${CALLBACK}?error=access_denied&state=state-123`);
+    await expect(denied).rejects.toMatchObject({ code: 'access_denied' });
+
+    const { result: failed } = await start();
+    flow().complete(`${CALLBACK}?error=server_error&error_description=Try+later&state=state-123`);
+    await expect(failed).rejects.toMatchObject({ code: 'provider_error', message: 'Try later' });
+  });
+
+  it('resolves cancelled when the screen is dismissed', async () => {
+    const { result } = await start();
+    flow().cancel(flow().request ?? undefined);
+    await expect(result).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('cancels a still-pending earlier flow when a new one starts', async () => {
+    const { result: first } = await start({ generateState: async () => 'first' });
+    const { result: second } = await start({ generateState: async () => 'second' });
+    await expect(first).resolves.toEqual({ status: 'cancelled' });
+    expect(flow().request?.state).toBe('second');
+    flow().complete(`${CALLBACK}?code=c2&state=second`);
+    await expect(second).resolves.toMatchObject({ status: 'success', code: 'c2' });
+  });
+
+  it('fails the flow when the sign-in screen cannot open', async () => {
+    const result = authorize({
+      ...deps,
+      openSignIn: () => {
+        throw new Error('no navigator');
+      },
     });
+    await expect(result).rejects.toThrow('no navigator');
+    expect(flow().request).toBeNull();
   });
 
-  it('rejects a response with no state at all', async () => {
-    const fake = fakeRequest(() => ({ type: 'success', params: { code: 'abc' } }));
-    await expect(authorize(deps(fake))).rejects.toBeInstanceOf(OAuthError);
-  });
-
-  it('reports a state mismatch surfaced by the library as an error result', async () => {
-    const fake = fakeRequest(() => ({
-      type: 'error',
-      params: { state: 'forged' },
-      error: { message: 'Cross-Site request verification failed' },
-    }));
-    await expect(authorize(deps(fake))).rejects.toMatchObject({ code: 'state_mismatch' });
-  });
-
-  it('maps provider errors and access_denied', async () => {
-    const denied = fakeRequest((state) => ({
-      type: 'success',
-      params: { error: 'access_denied', state },
-    }));
-    await expect(authorize(deps(denied))).rejects.toMatchObject({ code: 'access_denied' });
-    const failed = fakeRequest(() => ({ type: 'error', error: { message: 'boom' } }));
-    await expect(authorize(deps(failed))).rejects.toMatchObject({
-      code: 'provider_error',
-      message: 'boom',
-    });
-  });
-
-  it.each(['cancel', 'dismiss', 'opened', 'locked'])('resolves cancelled on %s', async (type) => {
-    const fake = fakeRequest(() => ({ type }));
-    await expect(authorize(deps(fake))).resolves.toEqual({ status: 'cancelled' });
+  it('uses OAUTH_REDIRECT_URI unless the build overrides it', async () => {
+    expect(OAUTH_REDIRECT_URI).toBe(CALLBACK);
+    const fork = 'https://fork.example.org/tumblr/callback';
+    process.env.EXPO_PUBLIC_OAUTH_REDIRECT_URI = fork;
+    try {
+      await jest.isolateModulesAsync(async () => {
+        // A fresh registry re-reads process.env into `env` (src/lib/env.ts).
+        /* eslint-disable @typescript-eslint/no-require-imports */
+        const isolated = require('./oauth') as typeof import('./oauth');
+        const { useOAuthFlowStore: store } =
+          require('./oauthFlowStore') as typeof import('./oauthFlowStore');
+        /* eslint-enable @typescript-eslint/no-require-imports */
+        const result = isolated.authorize(deps);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(store.getState().request?.redirectUri).toBe(fork);
+        expect(store.getState().request?.url).toContain(encodeURIComponent(fork));
+        store.getState().complete(`${fork}?code=f&state=state-123`);
+        await expect(result).resolves.toEqual({ status: 'success', code: 'f', redirectUri: fork });
+      });
+    } finally {
+      delete process.env.EXPO_PUBLIC_OAUTH_REDIRECT_URI;
+    }
   });
 });
 

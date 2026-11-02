@@ -12,6 +12,11 @@ export const EnvSchema = z.object({
   EXPO_PUBLIC_TUMBLR_API_KEY: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   EXPO_PUBLIC_TOKEN_EXCHANGE_URL: z.preprocess(emptyToUndefined, z.url().optional()),
   EXPO_PUBLIC_TUMBLR_CLIENT_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
+  /** Forks registering their own callback URL; must be https (Tumblr rejects other schemes). */
+  EXPO_PUBLIC_OAUTH_REDIRECT_URI: z.preprocess(
+    emptyToUndefined,
+    z.url({ protocol: /^https$/, error: 'must be an https:// URL' }).optional(),
+  ),
 });
 
 /**
@@ -23,13 +28,15 @@ export interface Env {
   tumblrApiKey?: string;
   tokenExchangeUrl?: string;
   tumblrClientSecret?: string;
+  /** Overrides `OAUTH_REDIRECT_URI` (src/api/auth.ts) for forks. */
+  oauthRedirectUri?: string;
   appVersion: string;
   isTest: boolean;
 }
 
 export type RawEnv = Partial<Record<keyof z.input<typeof EnvSchema>, string | undefined>>;
 
-/** Validate a raw env record. Every value is optional; a malformed proxy URL still throws. */
+/** Validate a raw env record. Every value is optional; a malformed proxy or callback URL still throws. */
 export function parseEnv(raw: RawEnv, options: { isTest: boolean; appVersion: string }): Env {
   const result = EnvSchema.safeParse(raw);
   if (!result.success) {
@@ -40,6 +47,7 @@ export function parseEnv(raw: RawEnv, options: { isTest: boolean; appVersion: st
     tumblrApiKey: result.data.EXPO_PUBLIC_TUMBLR_API_KEY,
     tokenExchangeUrl: result.data.EXPO_PUBLIC_TOKEN_EXCHANGE_URL,
     tumblrClientSecret: result.data.EXPO_PUBLIC_TUMBLR_CLIENT_SECRET,
+    oauthRedirectUri: result.data.EXPO_PUBLIC_OAUTH_REDIRECT_URI,
     appVersion: options.appVersion,
     isTest: options.isTest,
   };
@@ -50,6 +58,7 @@ export const env: Env = parseEnv(
     EXPO_PUBLIC_TUMBLR_API_KEY: process.env.EXPO_PUBLIC_TUMBLR_API_KEY,
     EXPO_PUBLIC_TOKEN_EXCHANGE_URL: process.env.EXPO_PUBLIC_TOKEN_EXCHANGE_URL,
     EXPO_PUBLIC_TUMBLR_CLIENT_SECRET: process.env.EXPO_PUBLIC_TUMBLR_CLIENT_SECRET,
+    EXPO_PUBLIC_OAUTH_REDIRECT_URI: process.env.EXPO_PUBLIC_OAUTH_REDIRECT_URI,
   },
   {
     isTest: process.env.NODE_ENV === 'test',
