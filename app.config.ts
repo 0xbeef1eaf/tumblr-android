@@ -2,6 +2,14 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 import pkg from './package.json';
 
+/** 0.1.0 → 100, 1.2.3 → 10203: Android needs a monotonically increasing integer per release. */
+export function versionCodeFor(version: string): number {
+  const [major = 0, minor = 0, patch = 0] = version
+    .split('.')
+    .map((n) => Number.parseInt(n, 10) || 0);
+  return major * 10000 + minor * 100 + patch;
+}
+
 /**
  * Expo app config. EXPO_PUBLIC_* values are inlined into the bundle by Metro and are
  * also mirrored into `extra` so native/runtime code can read them via expo-constants.
@@ -23,6 +31,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.tumblrgallery.app',
+    versionCode: versionCodeFor(pkg.version),
     adaptiveIcon: {
       backgroundColor: '#0f0f14',
       foregroundImage: './assets/android-icon-foreground.png',

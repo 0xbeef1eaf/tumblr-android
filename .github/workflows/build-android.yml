@@ -60,11 +60,19 @@ jobs:
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon
 
+      # Release asset name: tumblr-gallery-v<package.json version>.apk
+      - name: Name the APK
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          mkdir -p dist/release
+          cp android/app/build/outputs/apk/release/app-release.apk "dist/release/tumblr-gallery-v${VERSION}.apk"
+          ls -l dist/release
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: tumblr-gallery-apk
-          path: android/app/build/outputs/apk/release/*.apk
+          path: dist/release/*.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -72,7 +80,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: android/app/build/outputs/apk/release/*.apk
+          files: dist/release/*.apk
           generate_release_notes: true
           fail_on_unmatched_files: true
 

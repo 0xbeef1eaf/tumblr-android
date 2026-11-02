@@ -122,9 +122,11 @@ Android → Run workflow). It runs `npx expo prebuild --platform android` (CNG: 
 generated in CI and never committed) and then `./gradlew assembleRelease`.
 
 - **Download a CI build:** open the workflow run and download the `tumblr-gallery-apk`
-  artifact (kept 30 days). It is a zip containing the APK.
-- **Releases:** push a tag such as `v1.2.0` (`git tag v1.2.0 && git push origin v1.2.0`); the
-  same job creates a GitHub Release with the APK attached and generated release notes.
+  artifact (kept 30 days). It is a zip containing `tumblr-gallery-v<version>.apk`.
+- **Releases:** bump `version` in `package.json` (the Android `versionCode` derives from it),
+  then push a matching tag such as `v1.2.0` (`git tag v1.2.0 && git push origin v1.2.0`); the
+  same job creates a GitHub Release with `tumblr-gallery-v1.2.0.apk` attached and generated
+  release notes. Obtainium/Discoverium install that asset directly.
 
 > **Debug-signed.** The Expo template's `release` build type signs with the debug keystore.
 > The APK installs on any device (allow "install unknown apps"), but it cannot be uploaded
