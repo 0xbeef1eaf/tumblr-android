@@ -157,10 +157,11 @@ The workflow therefore:
   them at configure time, so every native library's project picks them up) and keeps the
   cache between runs with `actions/cache`. ccache hashes file contents, so it survives the
   fresh checkout and `expo prebuild` that defeat timestamp-based caches;
-- keeps Gradle's task cache and gives it a 4 GB heap.
+- keeps Gradle's task cache (`--build-cache`) and gives it a 4 GB heap.
 
-A warm run should take about 10–12 minutes against 30+ cold; the "ccache statistics" step
-in the job log shows the hit rate. A larger runner (`runs-on: ubuntu-latest-4-cores`, paid)
+Measured: 30 min before any of this; 22 min with an empty ccache; 16 min warm, of which
+R8 minification is 5–6 min. Set `MINIFY` to `false` in the workflow for faster but ~40%
+larger APKs. The "ccache statistics" step in the job log shows the hit rate. A larger runner (`runs-on: ubuntu-latest-4-cores`, paid)
 is the remaining lever for cold builds. Locally: `cd android && ./gradlew assembleRelease
 -PreactNativeArchitectures=arm64-v8a` (export the two `CMAKE_*_COMPILER_LAUNCHER=ccache`
 variables first if you have ccache installed).
