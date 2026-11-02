@@ -146,13 +146,23 @@ generated in CI and never committed) and then `./gradlew assembleRelease`.
   workflow by hand (Actions → Build Android → Run workflow) with `release_tag` set to
   `v<version>`; it creates the tag and the release from `main` for you.
 
-**Build time.** The slow part is compiling the native C++ libraries (Reanimated, Worklets,
-MMKV, Screens) on a two-core runner. The workflow builds only the two ARM ABIs (`ABIS` env in
-the workflow; add `x86_64` if you need an emulator build), caches the CMake/ninja outputs and
-Gradle's task cache between runs, and gives Gradle a 4 GB heap. Expect roughly 15–20 minutes
-warm versus 35–50 cold; a larger runner (`runs-on: ubuntu-latest-4-cores` or more, paid) is
-the next lever. Locally, the same flags apply: `cd android && ./gradlew assembleRelease
--PreactNativeArchitectures=arm64-v8a`.
+**Build time.** About 70% of a cold build is compiling C++ (the app module's React Native
+glue plus Reanimated, Worklets, MMKV, Screens, expo-modules-core) on a two-core runner.
+The workflow therefore:
+
+- builds only `arm64-v8a` (`ABIS` env in the workflow; add `armeabi-v7a` for 32-bit devices
+  or `x86_64` for emulators, each roughly doubling the native compile and the APK);
+- routes every CMake compile through [ccache](https://ccache.dev) via
+  [`.github/gradle/ccache.init.gradle`](.github/gradle/ccache.init.gradle) and keeps the
+  cache between runs with `actions/cache`. ccache hashes file contents, so it survives the
+  fresh checkout and `expo prebuild` that defeat timestamp-based caches;
+- keeps Gradle's task cache and gives it a 4 GB heap.
+
+A warm run should take about 10–12 minutes against 30+ cold; the "ccache statistics" step
+in the job log shows the hit rate. A larger runner (`runs-on: ubuntu-latest-4-cores`, paid)
+is the remaining lever for cold builds. Locally: `cd android && ./gradlew assembleRelease
+-PreactNativeArchitectures=arm64-v8a` (add `-I ../.github/gradle/ccache.init.gradle` if you
+have ccache installed).
 
 > **Debug-signed.** The Expo template's `release` build type signs with the debug keystore.
 > The APK installs on any device (allow "install unknown apps"), but it cannot be uploaded
