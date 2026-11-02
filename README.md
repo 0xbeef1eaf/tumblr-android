@@ -28,6 +28,10 @@ Releases are produced by the build workflow whenever a `v*` tag is pushed (see
 installer. [`discoverium.yml`](discoverium.yml) holds the metadata for Discoverium's app
 catalog; listing there is a pull request adding its raw URL to Discoverium's `apps.yml`.
 
+After installing, open **Settings → Tumblr API** and enter your own Tumblr app's key and
+secret ([Register a Tumblr app](#register-a-tumblr-app)); sign-in then runs inside the app,
+with no server or hosted page involved.
+
 ## Screenshots
 
 _Screenshots coming soon._ <!-- Add images under docs/screenshots/ and link them here. -->
@@ -37,7 +41,7 @@ _Screenshots coming soon._ <!-- Add images under docs/screenshots/ and link them
 - Node.js 22.12 or newer and npm
 - A Tumblr OAuth application (see below): you enter its consumer key and secret in the app
 - For on-device testing: an Android device or emulator and a **development build**. Native
-  modules (MMKV, SecureStore, expo-video, …) mean Expo Go is not enough.
+  modules (MMKV, SecureStore, WebView, expo-video, …) mean Expo Go is not enough.
 - For cloud builds: an [Expo](https://expo.dev) account and `npm i -g eas-cli` (>= 16)
 
 You do not need a local Android SDK to develop; typecheck, lint, tests and the Metro bundle
@@ -71,10 +75,21 @@ No test or CI job calls the live API: requests are served by [msw](https://mswjs
 
 1. Sign in to Tumblr and open <https://www.tumblr.com/oauth/apps> (Settings has an "Open
    Tumblr apps page" link), then choose **Register application**.
-2. Fill in the name, description and a website URL.
-3. Set the **Default callback URL** (OAuth2 redirect URL) to `tumblrgallery://auth/callback`
-   (Settings → Tumblr API has a row that copies it).
+2. Fill in any name and description. The **Application Website** can be this repository,
+   `https://github.com/0xbeef1eaf/tumblr-android`.
+3. Set the **Default callback URL** (OAuth2 redirect URL) to exactly
+   `https://0xbeef1eaf.github.io/tumblr-android/auth/callback` (Settings → Tumblr API
+   has a row that copies it).
 4. Save, then copy the **OAuth Consumer Key** and **Secret Key** into Settings → Tumblr API.
+
+Why an https URL, and why no server: Tumblr's form only accepts http(s) callback URLs (it
+rejects `tumblrgallery://…` as "not a valid domain"). Sign-in happens in an in-app WebView
+showing Tumblr's own login and authorize pages; when Tumblr redirects to the callback URL,
+the app intercepts that navigation before it loads and reads the code from it. The URL is
+only an identifier that must match your registration, so nothing is hosted at it and you
+need no server. (Tumblr's email/password login works in the WebView; some identity
+providers such as Google refuse embedded browsers.) A fork can use its own callback URL with
+`EXPO_PUBLIC_OAUTH_REDIRECT_URI`.
 
 ### Optional: pre-configured builds
 
@@ -90,6 +105,7 @@ cp .env.example .env     # all values are optional
 | `EXPO_PUBLIC_TUMBLR_API_KEY`       | Built-in consumer key for guest browsing ("Using built-in key")              |
 | `EXPO_PUBLIC_TOKEN_EXCHANGE_URL`   | Token-exchange proxy that adds the secret, so users of the build can sign in |
 | `EXPO_PUBLIC_TUMBLR_CLIENT_SECRET` | Development builds only: direct exchange with the built-in key               |
+| `EXPO_PUBLIC_OAUTH_REDIRECT_URI`   | Forks: your own https callback URL (default shown above)                     |
 
 `EXPO_PUBLIC_*` values are inlined into the JavaScript bundle, so **never** bake a secret into
 a build you distribute; release builds ignore `EXPO_PUBLIC_TUMBLR_CLIENT_SECRET`. Use the

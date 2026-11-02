@@ -33,7 +33,8 @@ Root (expo-router)
 ├── tag/[tag]              Gallery for a tag (also reached from a tag chip)
 ├── blog/[name]            Blog header + gallery, optional in-blog tag filter
 ├── post/[blog]/[id]       Post detail: all media, caption, tags, notes, actions
-└── viewer                 Full-screen media viewer (modal, transparent card)
+├── viewer                 Full-screen media viewer (modal, transparent card)
+└── auth/sign-in           Tumblr sign-in page in an in-app WebView (modal)
 ```
 
 Tabs: Explore, Dashboard (hidden when signed out), Search, Likes, Settings.
@@ -53,7 +54,7 @@ Tabs: Explore, Dashboard (hidden when signed out), Search, Likes, Settings.
   (`router.push('/settings')`). No preview requests are made. The same card is the
   empty/error state of Search results, Tag and Blog, whose queries stay disabled until a
   key is saved. Sign-in buttons with a key but no secret (and no proxy) do not open the
-  browser; they toast "Add your Tumblr app's consumer secret in Settings to sign in" with
+  sign-in screen; they toast "Add your Tumblr app's consumer secret in Settings to sign in" with
   a "Settings" action.
 
 ### 3.2 Dashboard (`/dashboard`, auth)
@@ -116,9 +117,20 @@ Tabs: Explore, Dashboard (hidden when signed out), Search, Likes, Settings.
     signs out and drops cached gallery and user data; saving identical values just closes.
   - "Remove credentials" (danger, only when the user entered some) → confirm sheet
     "Remove your credentials?" → deletes them and signs out.
-  - Help: "Set up your Tumblr app" with three numbered steps, a "Callback URL" row
-    showing `tumblrgallery://auth/callback` that copies it (toast "Callback URL
-    copied"), and an "Open Tumblr apps page" link to https://www.tumblr.com/oauth/apps.
+  - Help: "Set up your Tumblr app" with four numbered steps (register an application;
+    any name and description, Application Website can be
+    https://github.com/0xbeef1eaf/tumblr-android; paste the callback URL below as the
+    "Default callback URL", noting that nothing needs to exist at it because sign-in runs
+    in an in-app browser that catches it; copy the key and secret above), a "Callback
+    URL" row showing `https://0xbeef1eaf.github.io/tumblr-android/auth/callback` (or a
+    fork's `EXPO_PUBLIC_OAUTH_REDIRECT_URI`) that copies it (toast "Callback URL copied"),
+    and an "Open Tumblr apps page" link to https://www.tumblr.com/oauth/apps.
+- Sign in (`/auth/sign-in`, modal, no stack header): a header bar with the title "Sign in
+  to Tumblr" and a Cancel button above a WebView showing Tumblr's authorize page; a
+  centred spinner while a page loads. Load or HTTP failures replace the WebView with a
+  readable message and Retry. Cancel or back closes it (sign-in cancelled, no toast);
+  reaching the callback URL closes it and finishes sign-in. Opened with no sign-in in
+  progress it shows "Nothing to sign in to." and goes straight back.
 - Account: Sign in / Sign out, shows primary blog name.
 - Grid: columns 2 / 3 (default 2 on phones < 600 dp, 3 otherwise), show
   blog name overlay on tiles (on/off).
