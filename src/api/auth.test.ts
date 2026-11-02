@@ -7,15 +7,14 @@ import { API, server } from '@/test/msw';
 import {
   assertSignInConfigured,
   AuthConfigError,
-  buildAuthorizeUrl,
   createMemoryTokenStore,
   exchangeCode,
   isExpiring,
   MISSING_KEY_MESSAGE,
   MISSING_SECRET_MESSAGE,
+  OAUTH_REDIRECT_URI,
   OAuthError,
   parseAuthorizationResponse,
-  AUTH_DISCOVERY,
   refreshToken,
   RELEASE_ENV_SECRET_MESSAGE,
   resolveTokenEndpoint,
@@ -68,7 +67,7 @@ async function asRelease(fn: () => Promise<void>) {
 describe('exchangeCode', () => {
   it('posts to the proxy without a client secret when none is configured', async () => {
     const bodies = captureTokenRequests(PROXY);
-    const tokens = await exchangeCode('the-code', 'tumblrgallery://auth/callback', {
+    const tokens = await exchangeCode('the-code', OAUTH_REDIRECT_URI, {
       env: { ...baseEnv, tokenExchangeUrl: PROXY },
       credentials: { consumerKey: 'consumer-key', source: 'env' },
       now,
@@ -76,7 +75,7 @@ describe('exchangeCode', () => {
     expect(bodies[0]).toEqual({
       grant_type: 'authorization_code',
       code: 'the-code',
-      redirect_uri: 'tumblrgallery://auth/callback',
+      redirect_uri: 'https://0xbeef1eaf.github.io/tumblr-android/auth/callback',
       client_id: 'consumer-key',
     });
     expect(tokens).toEqual({
@@ -239,18 +238,6 @@ describe('token helpers', () => {
   it('computes expiresAt from expires_in', () => {
     expect(tokenSetFromResponse({ access_token: 'x', expires_in: 10 }, 5).expiresAt).toBe(10_005);
   });
-
-  it('builds the authorize URL with scopes, state and redirect', () => {
-    const url = new URL(buildAuthorizeUrl('xyz', 'tumblrgallery://auth/callback', 'consumer-key'));
-    expect(url.origin + url.pathname).toBe('https://www.tumblr.com/oauth2/authorize');
-    expect(Object.fromEntries(url.searchParams)).toEqual({
-      client_id: 'consumer-key',
-      response_type: 'code',
-      scope: 'basic write offline_access',
-      state: 'xyz',
-      redirect_uri: 'tumblrgallery://auth/callback',
-    });
-  });
 });
 
 describe('token stores', () => {
@@ -284,12 +271,5 @@ describe('parseAuthorizationResponse', () => {
     } catch (error) {
       expect((error as OAuthError).code).toBe(code);
     }
-  });
-
-  it('exposes the Tumblr discovery document', () => {
-    expect(AUTH_DISCOVERY).toEqual({
-      authorizationEndpoint: 'https://www.tumblr.com/oauth2/authorize',
-      tokenEndpoint: 'https://api.tumblr.com/v2/oauth2/token',
-    });
   });
 });

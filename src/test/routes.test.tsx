@@ -3,9 +3,12 @@ import { act, renderRouter, screen, fireEvent } from 'expo-router/testing-librar
 import { Share } from 'react-native';
 
 import { useAuthStore } from '@/features/auth/authStore';
+import { useOAuthFlowStore } from '@/features/auth/oauthFlowStore';
 import { sessionController } from '@/features/auth/sessionController';
 import { useViewerStore } from '@/features/gallery';
 import { makeItems } from '@/features/gallery/items.testutil';
+
+import { loadRequest, lastWebViewProps } from './webview';
 
 /**
  * Renders the real app/ directory (path relative to the jest rootDir): every route in
@@ -38,17 +41,28 @@ describe('navigation shell', () => {
     expect(screen.queryByTestId('viewer')).toBeNull();
   });
 
-  it('/auth/callback finishes the auth session and goes home', async () => {
-    await renderRouter('./app', { initialUrl: '/auth/callback' });
+  it('/auth/sign-in with no pending flow goes straight back to the tabs', async () => {
+    await renderRouter('./app', { initialUrl: '/auth/sign-in' });
     expect(await screen.findByTestId('sign-in')).toBeTruthy();
+    expect(screen.queryByTestId('sign-in-webview')).toBeNull();
   });
 
-  it('/auth/callback returns to the screen sign-in started from', async () => {
+  it('/auth/sign-in shows the WebView and returns where sign-in started', async () => {
+    const callback = 'https://0xbeef1eaf.github.io/tumblr-android/auth/callback';
     await renderRouter('./app', { initialUrl: '/tag/photography' });
     expect(await screen.findByTestId('share-tag')).toBeTruthy();
+    const result = useOAuthFlowStore
+      .getState()
+      .begin({ url: 'https://www.tumblr.com/oauth2/authorize', state: 's', redirectUri: callback });
     await act(async () => {
-      router.push('/auth/callback');
+      router.push('/auth/sign-in');
     });
+    expect(await screen.findByTestId('sign-in-webview')).toBeTruthy();
+    expect(screen).toHavePathname('/auth/sign-in');
+    await act(async () => {
+      lastWebViewProps().onShouldStartLoadWithRequest?.(loadRequest(`${callback}?code=c&state=s`));
+    });
+    await expect(result).resolves.toEqual({ status: 'success', code: 'c', redirectUri: callback });
     expect(await screen.findByTestId('share-tag')).toBeTruthy();
     expect(screen).toHavePathname('/tag/photography');
   });

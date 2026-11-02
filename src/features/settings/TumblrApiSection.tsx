@@ -3,7 +3,7 @@ import * as Linking from 'expo-linking';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { REDIRECT_URI } from '@/api/auth';
+import { getOAuthRedirectUri } from '@/api/auth';
 import type { CredentialsSource } from '@/api/credentials';
 import { useCredentialsStore } from '@/features/credentials/credentialsState';
 import { Icon, Text, toast } from '@/ui/primitives';
@@ -16,6 +16,8 @@ import { SettingsSection } from './SettingsSection';
 import { useCredentialActions } from './useCredentialActions';
 
 export const TUMBLR_APPS_URL = 'https://www.tumblr.com/oauth/apps';
+/** Suggested "Application Website" for the user's Tumblr app registration. */
+export const APP_WEBSITE_URL = 'https://github.com/0xbeef1eaf/tumblr-android';
 
 export const STATUS_COPY: Record<CredentialsSource, { label: string; description: string }> = {
   user: {
@@ -32,9 +34,10 @@ export const STATUS_COPY: Record<CredentialsSource, { label: string; description
   },
 };
 
-const STEPS = [
+export const STEPS = [
   'Open the Tumblr apps page and choose “Register application”.',
-  'Fill in any name, description and website, and set the default callback URL to the one below.',
+  `Fill in any name and description. The Application Website can be ${APP_WEBSITE_URL}.`,
+  'Paste the callback URL below as the “Default callback URL”, exactly as shown. Nothing needs to exist at it: sign-in runs in an in-app browser that catches it.',
   'Save, then copy the OAuth consumer key and consumer secret into the fields above.',
 ];
 
@@ -53,6 +56,7 @@ export function TumblrApiSection() {
   const [sheetKey, setSheetKey] = useState(0);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const status = STATUS_COPY[source];
+  const callbackUrl = getOAuthRedirectUri();
 
   const edit = () => {
     setSheetKey((key) => key + 1);
@@ -61,7 +65,7 @@ export function TumblrApiSection() {
 
   const copyCallback = async () => {
     try {
-      await Clipboard.setStringAsync(REDIRECT_URI);
+      await Clipboard.setStringAsync(callbackUrl);
       toast.success('Callback URL copied');
     } catch {
       toast.error('Could not copy the callback URL');
@@ -109,7 +113,7 @@ export function TumblrApiSection() {
         </View>
         <SettingsRow
           label="Callback URL"
-          description={REDIRECT_URI}
+          description={callbackUrl}
           onPress={() => void copyCallback()}
           trailing={<Icon name="copy-outline" size={20} tone="textSecondary" />}
           testID="row-callback-url"

@@ -9,7 +9,7 @@ import { createTestQueryClient, renderWithProviders } from '@/test/render';
 import { useToastStore } from '@/ui/primitives';
 
 import { CREDENTIAL_SCOPED_QUERY_ROOTS } from './useCredentialActions';
-import { maskKey, TUMBLR_APPS_URL, TumblrApiSection } from './TumblrApiSection';
+import { maskKey, STEPS, TUMBLR_APPS_URL, TumblrApiSection } from './TumblrApiSection';
 
 jest.mock('@/features/auth', () => ({ useSession: jest.fn() }));
 jest.mock('expo-linking', () => ({ openURL: jest.fn(async () => true) }));
@@ -115,10 +115,14 @@ describe('TumblrApiSection', () => {
 
   it('copies the callback URL and opens the Tumblr apps page', async () => {
     await renderWithProviders(<TumblrApiSection />);
-    expect(screen.getByText('tumblrgallery://auth/callback')).toBeTruthy();
+    const callback = 'https://0xbeef1eaf.github.io/tumblr-android/auth/callback';
+    expect(screen.getByText(callback)).toBeTruthy();
     expect(screen.getByText(/1\. Open the Tumblr apps page/)).toBeTruthy();
+    expect(screen.getByText(/https:\/\/github\.com\/0xbeef1eaf\/tumblr-android/)).toBeTruthy();
+    expect(screen.getByText(/“Default callback URL”/)).toBeTruthy();
+    expect(STEPS).toHaveLength(4);
     await fireEvent.press(screen.getByTestId('row-callback-url'));
-    expect(Clipboard.setStringAsync).toHaveBeenCalledWith('tumblrgallery://auth/callback');
+    expect(Clipboard.setStringAsync).toHaveBeenCalledWith(callback);
     expect(useToastStore.getState().toasts.at(-1)?.message).toBe('Callback URL copied');
     await fireEvent.press(screen.getByTestId('row-tumblr-apps'));
     expect(Linking.openURL).toHaveBeenCalledWith(TUMBLR_APPS_URL);

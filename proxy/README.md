@@ -15,7 +15,7 @@ of the app's build.
 `POST /token` with a JSON body, exactly what `src/api/auth.ts` sends:
 
 ```json
-{ "grant_type": "authorization_code", "code": "…", "redirect_uri": "tumblrgallery://auth/callback", "client_id": "…" }
+{ "grant_type": "authorization_code", "code": "…", "redirect_uri": "https://0xbeef1eaf.github.io/tumblr-android/auth/callback", "client_id": "…" }
 { "grant_type": "refresh_token", "refresh_token": "…", "client_id": "…" }
 ```
 
@@ -27,8 +27,9 @@ Any other `grant_type` is rejected with `400 unsupported_grant_type`. Requests a
 
 ## Deploy
 
-1. Register a Tumblr app at <https://www.tumblr.com/oauth/apps> with the redirect URL
-   `tumblrgallery://auth/callback`.
+1. Register a Tumblr app at <https://www.tumblr.com/oauth/apps> with the default callback URL
+   `https://0xbeef1eaf.github.io/tumblr-android/auth/callback` (an identifier the app's
+   sign-in WebView intercepts; nothing is served there).
 2. `cd proxy && npm install`
 3. `npx wrangler secret put TUMBLR_CLIENT_SECRET` (the app's OAuth consumer secret)
 4. Optional: `npx wrangler secret put TUMBLR_CLIENT_ID`; otherwise the `client_id` sent by
@@ -37,7 +38,8 @@ Any other `grant_type` is rejected with `400 unsupported_grant_type`. Requests a
    in the app's environment (EAS secret / `.env`).
 
 `ALLOWED_REDIRECT_URIS` in `wrangler.toml` pins the redirect URIs the Worker will forward.
-Add your Expo Go / dev-client URI there while developing. `ALLOWED_ORIGINS` (optional)
+The app uses the same https callback URL in every build (Expo Go and dev clients included);
+a fork that sets `EXPO_PUBLIC_OAUTH_REDIRECT_URI` lists its own URL there instead. `ALLOWED_ORIGINS` (optional)
 restricts browser origins; native apps do not need CORS.
 
 ## Local check

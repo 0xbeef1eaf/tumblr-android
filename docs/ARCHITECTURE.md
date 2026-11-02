@@ -13,7 +13,7 @@
 | Video | `expo-video` | Native player, muted autoplay |
 | Lists | `@shopify/flash-list` v2 (`masonry` prop) | Recycling masonry grid |
 | Gestures/anim | `react-native-gesture-handler` v3, `react-native-reanimated` v4 | Pinch-zoom viewer, swipe-to-dismiss |
-| Auth | `expo-auth-session` + `expo-web-browser` | OAuth2 authorization-code flow |
+| Auth | `react-native-webview` (in-app sign-in page) | OAuth2 authorization-code flow; the https callback is intercepted in the WebView (§7) |
 | Network state | `expo-network` | Offline banner, react-query `onlineManager`, "Autoplay GIFs on cellular" |
 | Validation | `zod` v4 | Parse API responses at the boundary; fixtures double as contract tests |
 | Tests | `jest-expo`, `@testing-library/react-native`, `msw` v2 | Unit + component tests against recorded fixtures |
@@ -36,11 +36,12 @@ app/                         expo-router routes (thin: compose feature screens)
   blog/[name].tsx
   post/[blog]/[id].tsx
   viewer.tsx                 presentation: 'transparentModal'
-  auth/callback.tsx          OAuth redirect target (also handled by expo-auth-session)
+  auth/sign-in.tsx           presentation: 'modal'; Tumblr's authorize page in a WebView (§7)
 src/
   api/
     client.ts                fetch wrapper: base URL, User-Agent, api_key/Bearer, 429 backoff, zod parse
-    auth.ts                  OAuth2: authorize, exchange, refresh, token store (SecureStore)
+    auth.ts                  OAuth2: exchange, refresh, callback validation, token store (SecureStore)
+    authorize.ts             authorize URL, scopes, OAUTH_REDIRECT_URI (https callback identifier)
     credentials.ts           user's own consumer key/secret (SecureStore) + env fallback resolution
     endpoints/               one file per resource: tagged.ts, blog.ts, user.ts, posts.ts
     schemas/                 zod schemas: npf.ts, legacy.ts, blog.ts, user.ts, envelope.ts
@@ -56,7 +57,7 @@ src/
     blog/                    BlogHeader, useBlogInfo, useBlogPosts, useFollow
     tag/                     useTaggedPosts
     post/                    PostDetail, NpfRenderer, useLike, useReblog
-    auth/                    useSession, SignInButton, authStore
+    auth/                    useSession, SignInButton, authStore, oauth (authorize), oauthFlowStore, SignInScreen/SignInWebView
     credentials/             useCredentialsStore, useCredentialsBootstrap, useApiKeyStatus, ConnectAppCard
     settings/                settingsStore, SettingsScreen, TumblrApiSection, CredentialsSheet
     explore/                 StarterTags, RecentChips, FollowingRow
@@ -203,12 +204,38 @@ The secret is theirs, on their own device, so the direct exchange is fine in eve
    requests are possible.
 3. **Guest mode** (default): API-key-only; all public galleries work. Without a key, Explore,
    Search, Tag and Blog show the "Connect your Tumblr app" card (DESIGN §3.1).
-4. **Sign in**: `sessionController.signIn()` first calls `assertSignInConfigured()`; a
-   missing key/secret toasts the reason with a "Settings" action, without opening the
-   browser. Then `expo-auth-session` opens
-   `https://www.tumblr.com/oauth2/authorize?client_id=<consumer key>&response_type=code&scope=basic write offline_access&state&redirect_uri`.
-   Redirect URI: `tumblrgallery://auth/callback` (registered in the user's Tumblr app;
-   Settings has a copy row).
+4. **Sign in** (in-app WebView): `sessionController.signIn()` first calls
+   `assertSignInConfigured()`; a missing key/secret toasts the reason with a "Settings"
+   action, without opening the sign-in screen. Then `authorize()` (`features/auth/oauth.ts`)
+   generates a 128-bit `state`, builds
+   `https://www.tumblr.com/oauth2/authorize?client_id=<consumer key>&response_type=code&scope=basic write offline_access&state&redirect_uri`
+   (`buildAuthorizeUrl`, no PKCE: Tumblr documents none), publishes `{ url, state,
+   redirectUri }` to the zustand `useOAuthFlowStore` and pushes `/auth/sign-in` (a modal
+   route; `SignInScreen` → `SignInWebView`). The WebView loads the authorize URL with
+   persistent cookies (`incognito={false}`, `sharedCookiesEnabled`), so a Tumblr login is
+   remembered. `onShouldStartLoadWithRequest` returns `false` for the callback URL (and
+   `onLoadStart` catches it as a fallback), so it never loads; its `code`, `state`,
+   `error`, `error_description` query params settle the `authorize()` promise:
+   `{ status: 'success', code, redirectUri }`, or `OAuthError` (`state_mismatch` when
+   `state` differs, `access_denied` → "Sign-in was cancelled", `provider_error`,
+   `missing_code`). Cancel, the back gesture or any unmount resolve `{ status:
+   'cancelled' }`; the store settles each flow once, so the dismissal after a success is a
+   no-op. Load and HTTP errors show a message with Retry.
+   **Callback URL** (`OAUTH_REDIRECT_URI`, `src/api/authorize.ts`):
+   `https://0xbeef1eaf.github.io/tumblr-android/auth/callback`. Tumblr's app form only
+   accepts http(s) callback URLs (it rejected `tumblrgallery://auth/callback`), so the
+   callback is an https URL used purely as an identifier: it must match the user's app
+   registration verbatim, but nothing is hosted or served there. Forks may override it
+   with `EXPO_PUBLIC_OAUTH_REDIRECT_URI` (validated as https). Settings has a copy row.
+   This replaces `expo-auth-session` and the `tumblrgallery://auth/callback` route; the
+   `tumblrgallery` scheme stays for ordinary deep links.
+   **Security note.** RFC 8252 discourages embedded WebViews for OAuth because the host app
+   could read what the user types. Here the WebView is first-party (this open-source app,
+   not a third party asking for Tumblr access) and the user supplies their own Tumblr app
+   credentials, so the app is already the OAuth client acting for them; no page is
+   injected with script and only the callback navigation is intercepted. The `state` check
+   still guards the callback. Some identity providers (e.g. Google sign-in) refuse
+   embedded WebViews; email/password sign-in on Tumblr works.
 5. **Token exchange / refresh** (`src/api/auth.ts`, `resolveTokenEndpoint`), in order:
    - consumer secret entered in Settings → `POST https://api.tumblr.com/v2/oauth2/token`
      with `client_id` = consumer key and `client_secret`, in **all** builds;
@@ -267,6 +294,7 @@ accepts an empty environment.
 EXPO_PUBLIC_TUMBLR_API_KEY=        # built-in consumer key ("Using built-in key")
 EXPO_PUBLIC_TOKEN_EXCHANGE_URL=    # optional proxy: https://<worker>.workers.dev/token
 EXPO_PUBLIC_TUMBLR_CLIENT_SECRET=  # dev builds only; ignored in release; never in EAS profiles
+EXPO_PUBLIC_OAUTH_REDIRECT_URI=    # forks: own https callback URL (default OAUTH_REDIRECT_URI)
 ```
 Values entered in Settings always win. `EXPO_PUBLIC_*` values are inlined into the bundle,
 so a distributed build must never carry a secret; use the proxy instead.

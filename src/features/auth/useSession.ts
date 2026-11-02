@@ -13,7 +13,7 @@ const signOut = () => sessionController.signOut();
 
 /**
  * Current session. `status` is `loading` while `useAuthBootstrap` restores tokens, then
- * `guest` or `signedIn`. `signIn` opens the Tumblr OAuth2 page in the system browser;
+ * `guest` or `signedIn`. `signIn` opens the Tumblr OAuth2 page in the in-app WebView;
  * `signOut` clears tokens and every user-scoped query.
  */
 export function useSession(): Session {

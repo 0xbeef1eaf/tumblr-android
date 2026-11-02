@@ -43,6 +43,13 @@ search plus direct blog lookup.
   secret is honoured only in dev builds; without any secret an optional proxy
   (`EXPO_PUBLIC_TOKEN_EXCHANGE_URL`) can add one (see ARCHITECTURE §7). No PKCE documented;
   still send `state`.
+- `redirect_uri`: Tumblr's app registration only accepts http(s) callback URLs ("not a valid
+  domain" for custom schemes). The app uses
+  `https://0xbeef1eaf.github.io/tumblr-android/auth/callback` (`OAUTH_REDIRECT_URI`;
+  forks: `EXPO_PUBLIC_OAUTH_REDIRECT_URI`) as a pure identifier: the authorize page runs in an
+  in-app WebView that intercepts the redirect to it (query `code`, `state`, or `error`,
+  `error_description`) before it loads, so nothing is served there. The same value is sent
+  as `redirect_uri` in the code exchange and must equal the app's "Default callback URL".
 - Tokens belong to the app that issued them: changing or removing the credentials signs out.
 
 ## Post shapes to handle

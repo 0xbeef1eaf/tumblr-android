@@ -55,7 +55,10 @@ export default function RootLayout() {
                   contentStyle: { backgroundColor: 'transparent' },
                 }}
               />
-              <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="auth/sign-in"
+                options={{ presentation: 'modal', headerShown: false, gestureEnabled: true }}
+              />
               <Stack.Screen name="+not-found" options={{ title: 'Not found' }} />
             </Stack>
             <ToastHost />

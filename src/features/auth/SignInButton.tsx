@@ -10,7 +10,7 @@ export interface SignInButtonProps {
   label?: string;
 }
 
-/** Primary "Sign in with Tumblr" button; shows a spinner while the browser flow runs. */
+/** Primary "Sign in with Tumblr" button; shows a spinner while the sign-in flow runs. */
 export function SignInButton({ label = 'Sign in with Tumblr' }: SignInButtonProps) {
   const { colors } = useTheme();
   const { signIn } = useSession();

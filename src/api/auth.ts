@@ -7,22 +7,23 @@ import { userAgent } from './client';
 import { getEffectiveCredentials, type EffectiveCredentials } from './credentials';
 import { ApiError } from './errors';
 
+export {
+  AUTHORIZE_URL,
+  buildAuthorizeUrl,
+  getOAuthRedirectUri,
+  OAUTH_REDIRECT_URI,
+  OAUTH_SCOPES,
+  type AuthorizeUrlParams,
+} from './authorize';
+
 /**
  * OAuth2 plumbing: token store, exchange/refresh HTTP calls and authorization-response
- * validation. The interactive flow lives in `features/auth/oauth.ts` (expo-auth-session) and
+ * validation. The interactive flow lives in `features/auth/oauth.ts` (an in-app WebView) and
  * the `TokenProvider` in `features/auth/tokenProvider.ts`.
  */
 const logger = createLogger('auth');
 
-export const AUTHORIZE_URL = 'https://www.tumblr.com/oauth2/authorize';
 export const TOKEN_URL = 'https://api.tumblr.com/v2/oauth2/token';
-export const OAUTH_SCOPES = ['basic', 'write', 'offline_access'] as const;
-/** Discovery document for `expo-auth-session` (Tumblr has no `.well-known` endpoint). */
-export const AUTH_DISCOVERY = {
-  authorizationEndpoint: AUTHORIZE_URL,
-  tokenEndpoint: TOKEN_URL,
-} as const;
-export const REDIRECT_URI = 'tumblrgallery://auth/callback';
 export const TOKEN_STORE_KEY = 'tumblr.oauth.tokens';
 
 export interface TokenSet {
@@ -110,18 +111,6 @@ export function isExpiring(tokens: TokenSet, now = Date.now(), skewMs = 60_000):
   return tokens.expiresAt - now <= skewMs;
 }
 
-/** Authorize URL for a consumer key (the interactive flow uses expo-auth-session instead). */
-export function buildAuthorizeUrl(state: string, redirectUri: string, clientId: string): string {
-  const params = new URLSearchParams({
-    client_id: clientId,
-    response_type: 'code',
-    scope: OAUTH_SCOPES.join(' '),
-    state,
-    redirect_uri: redirectUri,
-  });
-  return `${AUTHORIZE_URL}?${params.toString()}`;
-}
-
 export interface AuthDeps {
   env?: Env;
   /** Defaults to `getEffectiveCredentials(env)`, read at call time. */
@@ -183,7 +172,7 @@ export function resolveTokenEndpoint(
   throw new AuthConfigError(consumerSecret ? RELEASE_ENV_SECRET_MESSAGE : MISSING_SECRET_MESSAGE);
 }
 
-/** Throws `AuthConfigError` when sign-in cannot complete (checked before opening the browser). */
+/** Throws `AuthConfigError` when sign-in cannot complete (checked before the WebView opens). */
 export function assertSignInConfigured(deps: Pick<AuthDeps, 'env' | 'credentials'> = {}): void {
   const e = deps.env ?? defaultEnv;
   resolveTokenEndpoint(deps.credentials ?? getEffectiveCredentials(e), e);
@@ -243,7 +232,7 @@ async function postGrant(grant: Grant, deps: AuthDeps): Promise<TokenSet> {
   return tokenSetFromResponse(parsed.data, now());
 }
 
-/** Exchange an authorization code for tokens. */
+/** Exchange an authorization code for tokens; `redirectUri` must equal the one authorized. */
 export function exchangeCode(code: string, redirectUri: string, deps: AuthDeps = {}) {
   return postGrant({ grant_type: 'authorization_code', code, redirect_uri: redirectUri }, deps);
 }

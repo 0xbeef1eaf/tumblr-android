@@ -12,6 +12,7 @@ export { SignInButton, type SignInButtonProps } from './SignInButton';
 export { DashboardScreen } from './DashboardScreen';
 export { LikesScreen } from './LikesScreen';
 export { SignInPrompt, type SignInPromptProps } from './SignInPrompt';
+export { SignInScreen } from './SignInScreen';
 export { useDashboard } from './useDashboard';
 export { useFollow, type FollowState } from './useFollow';
 export { useFollowing, type FollowingResult } from './useFollowing';

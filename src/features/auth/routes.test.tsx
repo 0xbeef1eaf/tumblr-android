@@ -1,46 +1,48 @@
 import { screen, waitFor } from '@testing-library/react-native';
-import { maybeCompleteAuthSession } from 'expo-web-browser';
 
 import { renderWithProviders } from '@/test/render';
+import { lastWebViewProps } from '@/test/webview';
 
-import CallbackRoute from '../../../app/auth/callback';
+import SignInRoute from '../../../app/auth/sign-in';
 import PostRoute from '../../../app/post/[blog]/[id]';
+import { useOAuthFlowStore } from './oauthFlowStore';
 
 const mockReplace = jest.fn();
 const mockBack = jest.fn();
 const mockCanGoBack = jest.fn(() => false);
 jest.mock('expo-router', () => ({
+  router: { replace: (...args: unknown[]) => mockReplace(...args) },
   useRouter: () => ({
     replace: mockReplace,
     back: mockBack,
     canGoBack: mockCanGoBack,
     push: jest.fn(),
   }),
+  useNavigation: () => ({ canGoBack: mockCanGoBack, goBack: mockBack }),
   useLocalSearchParams: () => ({ blog: 'northlight-studio', id: '742388497658807856' }),
 }));
-jest.mock('expo-web-browser', () => ({ maybeCompleteAuthSession: jest.fn() }));
 
-describe('auth callback route', () => {
-  beforeEach(() => {
-    mockReplace.mockClear();
-    mockBack.mockClear();
-  });
+describe('auth sign-in route', () => {
+  afterEach(() => useOAuthFlowStore.getState().cancel());
 
-  it('completes the auth session, shows a spinner and returns home without history', async () => {
-    mockCanGoBack.mockReturnValue(false);
-    await renderWithProviders(<CallbackRoute />);
-    expect(screen.getByTestId('auth-callback')).toBeTruthy();
-    expect(screen.getByText('Finishing sign-in…')).toBeTruthy();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
-    expect(mockBack).not.toHaveBeenCalled();
-    expect(maybeCompleteAuthSession).toHaveBeenCalled();
-  });
-
-  it('goes back to where sign-in started when there is history', async () => {
-    mockCanGoBack.mockReturnValue(true);
-    await renderWithProviders(<CallbackRoute />);
-    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+  it('renders the WebView for a pending flow', async () => {
+    const url = 'https://www.tumblr.com/oauth2/authorize?state=s1';
+    void useOAuthFlowStore.getState().begin({
+      url,
+      state: 's1',
+      redirectUri: 'https://0xbeef1eaf.github.io/tumblr-android/auth/callback',
+    });
+    await renderWithProviders(<SignInRoute />);
+    expect(screen.getByTestId('sign-in-webview')).toBeTruthy();
+    expect(lastWebViewProps().source).toEqual({ uri: url });
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('shows "nothing to sign in" and goes home without a pending flow', async () => {
+    mockCanGoBack.mockReturnValue(false);
+    await renderWithProviders(<SignInRoute />);
+    expect(screen.getByTestId('sign-in-empty')).toBeTruthy();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   });
 });
 
