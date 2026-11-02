@@ -5,6 +5,13 @@ on:
     branches: [main]
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: >-
+          Also publish a GitHub Release with this tag (e.g. v0.1.0). It must match
+          "v" + package.json version. Leave empty for a plain build.
+        required: false
+        default: ''
 
 concurrency:
   group: build-android-${{ github.ref }}
@@ -60,6 +67,15 @@ jobs:
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon
 
+      - name: Check the requested release tag matches package.json
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "${{ inputs.release_tag }}" != "v${VERSION}" ]; then
+            echo "::error::release_tag '${{ inputs.release_tag }}' does not match package.json version v${VERSION}"
+            exit 1
+          fi
+
       # Release asset name: tumblr-gallery-v<package.json version>.apk
       - name: Name the APK
         run: |
@@ -76,10 +92,14 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # Runs for pushed v* tags, or for a manual run with release_tag set (the action then
+      # creates that tag at this commit).
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
           files: dist/release/*.apk
           generate_release_notes: true
           fail_on_unmatched_files: true

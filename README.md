@@ -126,7 +126,9 @@ generated in CI and never committed) and then `./gradlew assembleRelease`.
 - **Releases:** bump `version` in `package.json` (the Android `versionCode` derives from it),
   then push a matching tag such as `v1.2.0` (`git tag v1.2.0 && git push origin v1.2.0`); the
   same job creates a GitHub Release with `tumblr-gallery-v1.2.0.apk` attached and generated
-  release notes. Obtainium/Discoverium install that asset directly.
+  release notes. Obtainium/Discoverium install that asset directly. Alternatively run the
+  workflow by hand (Actions → Build Android → Run workflow) with `release_tag` set to
+  `v<version>`; it creates the tag and the release from `main` for you.
 
 > **Debug-signed.** The Expo template's `release` build type signs with the debug keystore.
 > The APK installs on any device (allow "install unknown apps"), but it cannot be uploaded
