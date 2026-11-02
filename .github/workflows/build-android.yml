@@ -106,15 +106,16 @@ jobs:
       # and cannot update a build signed with a different key. See README "Builds" for a
       # real keystore (EAS credentials or Gradle signing via secrets).
       #
-      # Build cache, parallelism and a larger JVM heap are on; every CMake compile goes
-      # through ccache via the CMAKE_*_COMPILER_LAUNCHER environment (see job env).
+      # Gradle's task-output cache and parallel execution are enabled with the CLI flags
+      # (`-Porg.gradle.*` would only set project properties, which Gradle ignores for these);
+      # setup-gradle persists the cache. Every CMake compile goes through ccache via the
+      # CMAKE_*_COMPILER_LAUNCHER environment (see job env).
       - name: Assemble release APK
         working-directory: android
         run: >-
           ./gradlew assembleRelease
+          --build-cache --parallel
           -PreactNativeArchitectures=${{ env.ABIS }}
-          -Porg.gradle.caching=true
-          -Porg.gradle.parallel=true
           -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g"
 
       - name: ccache statistics
