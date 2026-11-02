@@ -130,6 +130,14 @@ generated in CI and never committed) and then `./gradlew assembleRelease`.
   workflow by hand (Actions → Build Android → Run workflow) with `release_tag` set to
   `v<version>`; it creates the tag and the release from `main` for you.
 
+**Build time.** The slow part is compiling the native C++ libraries (Reanimated, Worklets,
+MMKV, Screens) on a two-core runner. The workflow builds only the two ARM ABIs (`ABIS` env in
+the workflow; add `x86_64` if you need an emulator build), caches the CMake/ninja outputs and
+Gradle's task cache between runs, and gives Gradle a 4 GB heap. Expect roughly 15–20 minutes
+warm versus 35–50 cold; a larger runner (`runs-on: ubuntu-latest-4-cores` or more, paid) is
+the next lever. Locally, the same flags apply: `cd android && ./gradlew assembleRelease
+-PreactNativeArchitectures=arm64-v8a`.
+
 > **Debug-signed.** The Expo template's `release` build type signs with the debug keystore.
 > The APK installs on any device (allow "install unknown apps"), but it cannot be uploaded
 > to Google Play, and Android will not update it in place with a build signed by a

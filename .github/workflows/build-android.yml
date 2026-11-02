@@ -30,6 +30,8 @@ jobs:
       contents: write
     env:
       CI: 1
+      # CPU architectures to build. Add x86_64 for emulator builds (slower, larger APK).
+      ABIS: arm64-v8a,armeabi-v7a
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,6 +53,9 @@ jobs:
       # is not used: it installs the legacy `tools` package, which Google removed from the SDK repo.
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          # Gradle's task-output cache (org.gradle.caching) persists between runs too.
+          cache-read-only: false
 
       - name: Install dependencies
         run: npm ci
@@ -59,13 +64,37 @@ jobs:
       - name: Generate native project
         run: npx expo prebuild --platform android --no-install
 
+      # The C++ of Reanimated, Worklets, Nitro/MMKV, Screens etc. is the slow part. CMake/ninja
+      # outputs live in .cxx folders at stable paths, so restoring them lets ninja skip
+      # unchanged objects. Keyed on the lockfile and the ABI list; a stale hit only costs a
+      # rebuild of what changed.
+      - name: Restore native build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            android/app/.cxx
+            node_modules/**/android/.cxx
+            node_modules/**/android/build
+          key: cxx-${{ runner.os }}-${{ env.ABIS }}-${{ hashFiles('package-lock.json', 'app.config.ts') }}
+          restore-keys: |
+            cxx-${{ runner.os }}-${{ env.ABIS }}-
+
       # The Expo template's `release` build type signs with the debug keystore
       # (signingConfigs.debug). The APK installs on any device but cannot go to Google Play
       # and cannot update a build signed with a different key. See README "Builds" for a
       # real keystore (EAS credentials or Gradle signing via secrets).
+      #
+      # Only the two ARM ABIs are built (phones and tablets); x86/x86_64 are emulator-only
+      # and double the native compile. Build cache, parallelism and a larger JVM heap are
+      # on; the daemon stays on for the one invocation.
       - name: Assemble release APK
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
+        run: >-
+          ./gradlew assembleRelease
+          -PreactNativeArchitectures=${{ env.ABIS }}
+          -Porg.gradle.caching=true
+          -Porg.gradle.parallel=true
+          -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g"
 
       - name: Check the requested release tag matches package.json
         if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
