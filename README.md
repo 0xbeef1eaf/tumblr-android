@@ -139,12 +139,14 @@ generated in CI and never committed) and then `./gradlew assembleRelease`.
 
 - **Download a CI build:** open the workflow run and download the `tumblr-gallery-apk`
   artifact (kept 30 days). It is a zip containing `tumblr-gallery-v<version>.apk`.
-- **Releases:** bump `version` in `package.json` (the Android `versionCode` derives from it),
-  then push a matching tag such as `v1.2.0` (`git tag v1.2.0 && git push origin v1.2.0`); the
-  same job creates a GitHub Release with `tumblr-gallery-v1.2.0.apk` attached and generated
-  release notes. Obtainium/Discoverium install that asset directly. Alternatively run the
-  workflow by hand (Actions → Build Android → Run workflow) with `release_tag` set to
-  `v<version>`; it creates the tag and the release from `main` for you.
+- **Releases:** every merge to `main` publishes one. If the merged `package.json` carries a
+  version that has no tag yet (bump it in the PR for a minor or major release), that version
+  is released as-is; otherwise the workflow bumps the patch level, commits `chore(release):
+vX.Y.Z [skip ci]` back to `main`, and releases that. The Android `versionCode` derives
+  from the version, so each release installs over the previous one. The release carries
+  `tumblr-gallery-vX.Y.Z.apk` and generated notes; Obtainium/Discoverium install that asset
+  directly. Pushing a `v*` tag or running the workflow by hand (Actions → Build Android →
+  Run workflow, `release_tag` = `v<version>`) still works for out-of-band releases.
 
 **Build time.** About 70% of a cold build is compiling C++ (the app module's React Native
 glue plus Reanimated, Worklets, MMKV, Screens, expo-modules-core) on a two-core runner.

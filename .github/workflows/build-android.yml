@@ -77,6 +77,27 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Every merge to main is a release. If package.json already carries a version with no
+      # tag yet (the PR bumped it), that version is released as-is. Otherwise the patch level
+      # is bumped, committed back to main ([skip ci] keeps that commit from re-triggering) and
+      # released. Pushed v* tags and manual runs with release_tag still work as before.
+      - name: Resolve release version (merge to main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: autorelease
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            NEW=$(npm version patch --no-git-tag-version)
+            git commit -am "chore(release): ${NEW} [skip ci]"
+            git push origin HEAD:main
+            VERSION=${NEW#v}
+            echo "Bumped to ${VERSION} (v$(node -p "require('./package.json').version") was already released)"
+          fi
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       # The C++ of the app module and of Reanimated, Worklets, Nitro/MMKV, Screens etc. is
       # ~70% of a cold build. Timestamp-based caches (.cxx/ninja) are useless here because
       # prebuild and checkout refresh every input, so compile results are cached by content
@@ -151,14 +172,14 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      # Runs for pushed v* tags, or for a manual run with release_tag set (the action then
-      # creates that tag at this commit).
+      # Runs for merges to main (tag from the step above), pushed v* tags, and manual runs
+      # with release_tag set. The action creates the tag at the given commit if it is new.
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
+        if: steps.autorelease.outputs.tag != '' || startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.release_tag || github.ref_name }}
-          target_commitish: ${{ github.sha }}
+          tag_name: ${{ steps.autorelease.outputs.tag || inputs.release_tag || github.ref_name }}
+          target_commitish: ${{ steps.autorelease.outputs.sha || github.sha }}
           files: dist/release/*.apk
           generate_release_notes: true
           fail_on_unmatched_files: true
