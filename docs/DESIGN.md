@@ -97,8 +97,12 @@ Tabs: Explore, Dashboard (hidden when signed out), Search, Likes, Settings.
 - Receives a list of `GalleryItem` ids + start index from a shared in-memory
   store (not via URL, to avoid serialising large arrays).
 - Horizontal pager (one item per page), each page a pinch-zoom/pan image
-  (double-tap to zoom), GIFs animate, video plays via `expo-video` with native
+  (zoom is pinch only), GIFs animate, video plays via `expo-video` with native
   controls, muted by default.
+- Double-tap on an image **likes** the post (never unlikes; already liked → no-op;
+  guests get an on-device bookmark, as with the heart). A heart bursts over the
+  centre of the image (scale + fade, ~600 ms; with reduced motion a plain 400 ms
+  flash), with a light haptic tick. The chrome's heart updates at once.
 - Tap toggles chrome: top bar (close, index "3 / 12"), bottom bar (blog name →
   blog, caption excerpt → post detail, like, share, save).
 - Swipe down to dismiss with scale/fade.

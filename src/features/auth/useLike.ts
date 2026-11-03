@@ -123,3 +123,21 @@ export function useToggleLike(): (item: GalleryItem) => void {
     [mutate],
   );
 }
+
+/**
+ * Like-only variant for the viewer's double tap: likes the item if it is not liked yet and
+ * never unlikes (no-op when already liked). Guests get a local bookmark, as with `useLike`.
+ * Haptics are left to the caller (the viewer ticks on every double tap).
+ */
+export function useEnsureLiked(): (item: GalleryItem) => void {
+  const { mutate } = useLikeMutation();
+  return useCallback(
+    (item: GalleryItem) => {
+      const ctx = currentLikeContext();
+      if (resolveLiked(item, ctx)) return;
+      if (!ctx.signedIn) return toggleBookmark(item);
+      mutate({ item, target: true });
+    },
+    [mutate],
+  );
+}

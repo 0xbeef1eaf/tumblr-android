@@ -14,7 +14,7 @@ import {
 } from './auth.testutil';
 import { useBookmarksStore } from './bookmarksStore';
 import { useInteractionStore } from './interactionStore';
-import { useIsLiked, useLike, useToggleLike } from './useLike';
+import { useEnsureLiked, useIsLiked, useLike, useToggleLike } from './useLike';
 
 const item = makeTestItem();
 
@@ -159,5 +159,52 @@ describe('useIsLiked', () => {
       useBookmarksStore.getState().toggle(item);
     });
     expect(result.current(item)).toBe(true);
+  });
+});
+
+describe('useEnsureLiked', () => {
+  it('signed in: likes optimistically when not liked yet', async () => {
+    signInForTest();
+    const calls = recordLikeCalls();
+    const client = createClient();
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    const { result } = await renderHook(() => ({ ensure: useEnsureLiked(), like: useLike(item) }), {
+      wrapper: createWrapper(client),
+    });
+    await act(async () => {
+      result.current.ensure(item);
+    });
+    expect(result.current.like.liked).toBe(true); // optimistic, shared with the chrome heart
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]?.path).toBe('/v2/user/like');
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['likes'] }));
+    expect(result.current.like.liked).toBe(true);
+  });
+
+  it('signed in: does nothing when already liked (server flag or override)', async () => {
+    signInForTest();
+    const calls = recordLikeCalls();
+    const { result } = await renderHook(() => useEnsureLiked(), { wrapper: createWrapper() });
+    await act(async () => {
+      result.current({ ...item, liked: true });
+      useInteractionStore.getState().setLike('other', true);
+      result.current({ ...item, id: 'other:0', postId: 'other' });
+    });
+    expect(calls).toHaveLength(0);
+    expect(useInteractionStore.getState().likes[item.postId]).toBeUndefined();
+  });
+
+  it('guest: bookmarks once and never removes the bookmark', async () => {
+    const calls = recordLikeCalls();
+    const { result } = await renderHook(() => useEnsureLiked(), { wrapper: createWrapper() });
+    await act(async () => {
+      result.current(item);
+    });
+    expect(useBookmarksStore.getState().items.map((i) => i.id)).toEqual([item.id]);
+    await act(async () => {
+      result.current(item);
+    });
+    expect(useBookmarksStore.getState().items.map((i) => i.id)).toEqual([item.id]);
+    expect(calls).toHaveLength(0);
   });
 });

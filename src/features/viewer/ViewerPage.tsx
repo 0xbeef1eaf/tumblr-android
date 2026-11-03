@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
@@ -25,6 +25,8 @@ export interface ViewerPageProps {
   safeMode: boolean;
   onZoomChange: (zoomed: boolean) => void;
   onToggleChrome: () => void;
+  /** Double tap on an image page (the viewer likes the post); off when undefined. */
+  onDoubleTap?: (item: GalleryItem) => void;
 }
 
 /** Full-resolution variant for the viewer (ARCHITECTURE §5.3: target = screen width px). */
@@ -54,12 +56,14 @@ function ViewerPageImpl({
   safeMode,
   onZoomChange,
   onToggleChrome,
+  onDoubleTap,
 }: ViewerPageProps) {
   const revealed = useIsRevealed(item.postId);
   const reveal = useRevealStore((s) => s.reveal);
   const hidden = safeMode && item.isSensitive && !revealed;
   const { top, left, ...box } = mediaBox(size, useSafeAreaInsets());
   const boxStyle = { top, left, width: box.width, height: box.height };
+  const doubleTap = useCallback(() => onDoubleTap?.(item), [onDoubleTap, item]);
 
   if (item.kind === 'video' && item.videoUrl && !hidden) {
     return (
@@ -92,6 +96,7 @@ function ViewerPageImpl({
           accessibilityLabel={tileAccessibilityLabel(item)}
           onZoomChange={onZoomChange}
           onSingleTap={onToggleChrome}
+          onDoubleTap={onDoubleTap ? doubleTap : undefined}
           testID={`viewer-image-${item.id}`}
         />
       </View>

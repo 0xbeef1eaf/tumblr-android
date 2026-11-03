@@ -17,7 +17,6 @@ import { useReducedMotion } from '@/ui/useReducedMotion';
 import {
   clampScale,
   clampTranslation,
-  DOUBLE_TAP_SCALE,
   fitContain,
   MIN_SCALE,
   zoomAround,
@@ -40,12 +39,14 @@ export interface ZoomableImageProps {
   accessibilityLabel: string;
   onZoomChange?: (zoomed: boolean) => void;
   onSingleTap?: () => void;
+  /** Double tap (the viewer likes the post). Without it single taps fire without delay. */
+  onDoubleTap?: () => void;
   testID?: string;
 }
 
 /**
  * Pinch (1–4×, anchored at the focal point), pan while zoomed (bounds-clamped),
- * double-tap 1× ↔ 2.5×, single tap → `onSingleTap` (DESIGN §3.7).
+ * double tap → `onDoubleTap`, single tap → `onSingleTap` (DESIGN §3.7).
  */
 function ZoomableImageImpl({
   uri,
@@ -58,6 +59,7 @@ function ZoomableImageImpl({
   accessibilityLabel,
   onZoomChange,
   onSingleTap,
+  onDoubleTap,
   testID = 'zoomable-image',
 }: ZoomableImageProps) {
   const reducedMotion = useReducedMotion();
@@ -156,19 +158,10 @@ function ZoomableImageImpl({
 
   const doubleTap = useTapGesture({
     numberOfTaps: 2,
-    onActivate: (e) => {
+    enabled: onDoubleTap !== undefined,
+    onActivate: () => {
       'worklet';
-      if (scale.get() > MIN_SCALE + ZOOM_EPSILON) {
-        settle(MIN_SCALE, 0, 0);
-        return;
-      }
-      const fx = e.x - size.width / 2;
-      const fy = e.y - size.height / 2;
-      settle(
-        DOUBLE_TAP_SCALE,
-        zoomAround(fx, 0, 1, DOUBLE_TAP_SCALE),
-        zoomAround(fy, 0, 1, DOUBLE_TAP_SCALE),
-      );
+      if (onDoubleTap) scheduleOnRN(onDoubleTap);
     },
   });
 

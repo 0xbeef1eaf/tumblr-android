@@ -34,6 +34,8 @@ export function reanimatedMock(): Record<string, unknown> {
     useReducedMotion: () => false,
     withTiming: identity,
     withSpring: identity,
+    withSequence: <T>(...values: T[]) => values[values.length - 1],
+    withDelay: <T>(_ms: number, value: T) => value,
     interpolate,
     Extrapolation: { CLAMP: 'clamp' },
     runOnJS: <F>(fn: F) => fn,

@@ -36,7 +36,7 @@ Files: `src/features/gallery/**`, `src/features/viewer/**`, `app/viewer.tsx`.
   `useGalleryPaging(queryFn, key, cursorFn)` generic infinite query → flat deduped items.
 - `viewerStore` (zustand, non-persisted): `open(items, index)`, current index.
 - Viewer: pager (`react-native-pager-view` or reanimated horizontal list),
-  `ZoomableImage` (pinch/pan/double-tap, bounds-clamped), `VideoPage` (expo-video),
+  `ZoomableImage` (pinch/pan, double-tap → like, bounds-clamped), `VideoPage` (expo-video),
   chrome toggle, swipe-down dismiss, prefetch ±1, save (expo-media-library) & share.
 - Tests: tile renders badges/labels; gallery dedupes and opens viewer; pickVariant usage.
 

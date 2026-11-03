@@ -16,7 +16,7 @@ export { SignInScreen } from './SignInScreen';
 export { useDashboard } from './useDashboard';
 export { useFollow, type FollowState } from './useFollow';
 export { useFollowing, type FollowingResult } from './useFollowing';
-export { useIsLiked, useLike, useToggleLike, type LikeState } from './useLike';
+export { useEnsureLiked, useIsLiked, useLike, useToggleLike, type LikeState } from './useLike';
 export { useLikes } from './useLikes';
 export { useReblog, type ReblogInput, type ReblogState } from './useReblog';
 export { useSession, type Session } from './useSession';

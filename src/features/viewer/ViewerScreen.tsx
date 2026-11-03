@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import { router, useNavigation } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -6,6 +7,7 @@ import { PixelRatio, StyleSheet, useWindowDimensions, View } from 'react-native'
 import { GestureDetector } from 'react-native-gesture-handler';
 import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view';
 import Animated from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { GalleryItem } from '@/domain/galleryItem';
 import {
@@ -19,9 +21,10 @@ import {
 import { useSettingsStore } from '@/features/settings/settingsStore';
 import { useReducedMotion } from '@/ui/useReducedMotion';
 
+import { HeartBurst } from './HeartBurst';
 import { useDismissGesture } from './useDismissGesture';
 import { ViewerChrome } from './ViewerChrome';
-import { ViewerPage, viewerVariant } from './ViewerPage';
+import { mediaBox, ViewerPage, viewerVariant } from './ViewerPage';
 
 /** Pages within this distance of the current one are rendered (and ±1 prefetched). */
 const RENDER_WINDOW = 1;
@@ -31,6 +34,8 @@ export const LOAD_MORE_THRESHOLD = 3;
 export interface ViewerScreenProps {
   /** Optional Like control for the bottom bar (WP4). */
   renderLike?: (item: GalleryItem) => ReactNode;
+  /** Double tap on an image: the app likes the post (never unlikes). Shows a heart burst. */
+  onDoubleTap?: (item: GalleryItem) => void;
 }
 
 type Nav = { canGoBack: () => boolean; goBack: () => void };
@@ -51,7 +56,7 @@ export function prefetchNeighbours(items: GalleryItem[], index: number, screenWi
 }
 
 /** `/viewer` (DESIGN §3.7): reads the in-memory viewer store filled by a gallery. */
-export function ViewerScreen({ renderLike }: ViewerScreenProps) {
+export function ViewerScreen({ renderLike, onDoubleTap }: ViewerScreenProps) {
   const isOpen = useViewerStore((s) => s.isOpen && s.items.length > 0);
 
   const navigation = useNavigation<Nav>();
@@ -63,10 +68,10 @@ export function ViewerScreen({ renderLike }: ViewerScreenProps) {
   }, [navigation]);
 
   if (!isOpen) return <View style={styles.root} testID="viewer-empty" />;
-  return <ViewerContent renderLike={renderLike} />;
+  return <ViewerContent renderLike={renderLike} onDoubleTap={onDoubleTap} />;
 }
 
-function ViewerContent({ renderLike }: ViewerScreenProps) {
+function ViewerContent({ renderLike, onDoubleTap }: ViewerScreenProps) {
   const items = useViewerStore((s) => s.items);
   const index = useViewerStore((s) => s.index);
   const setIndex = useViewerStore((s) => s.setIndex);
@@ -80,6 +85,8 @@ function ViewerContent({ renderLike }: ViewerScreenProps) {
   const [chromeVisible, setChromeVisible] = useState(true);
   const pager = useRef<PagerView>(null);
   const pagerPosition = useRef(initialPage);
+  const [burst, setBurst] = useState(0);
+  const burstBox = mediaBox({ width, height }, useSafeAreaInsets());
 
   const screenWidthPx = Math.round(width * PixelRatio.get());
   const gridWidthPx = columnWidthPx(width, columns);
@@ -120,6 +127,16 @@ function ViewerContent({ renderLike }: ViewerScreenProps) {
   );
 
   const toggleChrome = useCallback(() => setChromeVisible((v) => !v), []);
+
+  const likeOnDoubleTap = useCallback(
+    (item: GalleryItem) => {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+      setBurst((n) => n + 1);
+      onDoubleTap?.(item);
+    },
+    [onDoubleTap],
+  );
+  const endBurst = useCallback(() => setBurst(0), []);
 
   /** Chrome navigation leaves the modal first so the target pushes onto the main stack. */
   const goToBlog = useCallback(
@@ -169,6 +186,7 @@ function ViewerContent({ renderLike }: ViewerScreenProps) {
                     safeMode={safeMode}
                     onZoomChange={setZoomed}
                     onToggleChrome={toggleChrome}
+                    onDoubleTap={onDoubleTap ? likeOnDoubleTap : undefined}
                   />
                 ) : null}
               </View>
@@ -176,6 +194,11 @@ function ViewerContent({ renderLike }: ViewerScreenProps) {
           </PagerView>
         </Animated.View>
       </GestureDetector>
+      {burst > 0 ? (
+        <View style={[styles.burst, burstBox]} pointerEvents="none">
+          <HeartBurst key={burst} reducedMotion={reducedMotion} onDone={endBurst} />
+        </View>
+      ) : null}
       <ViewerChrome
         item={current}
         index={index}
@@ -196,4 +219,5 @@ function ViewerContent({ renderLike }: ViewerScreenProps) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   backdrop: { backgroundColor: '#000000' },
+  burst: { position: 'absolute' },
 });
