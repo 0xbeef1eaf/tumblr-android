@@ -142,7 +142,7 @@ generated in CI and never committed) and then `./gradlew assembleRelease`.
 - **Releases:** every merge to `main` publishes one. If the merged `package.json` carries a
   version that has no tag yet (bump it in the PR for a minor or major release), that version
   is released as-is; otherwise the workflow bumps the patch level, commits `chore(release):
-  vX.Y.Z [skip ci]` back to `main`, and releases that. The Android `versionCode` derives
+vX.Y.Z [skip ci]` back to `main`, and releases that. The Android `versionCode` derives
   from the version, so each release installs over the previous one. The release carries
   `tumblr-gallery-vX.Y.Z.apk` and generated notes; Obtainium/Discoverium install that asset
   directly. Pushing a `v*` tag or running the workflow by hand (Actions → Build Android →
