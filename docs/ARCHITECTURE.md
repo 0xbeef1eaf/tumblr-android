@@ -99,7 +99,9 @@ Tumblr API ──fetch──▶ api/client (auth, retry, zod) ──▶ endpoint
 ```
 
 - Query keys: `['tagged', tag]`, `['blog', name, 'posts', {tag}]`, `['blog', name, 'info']`,
-  `['dashboard']`, `['likes']`, `['user']`, `['following']`, `['post', blog, id]`.
+  `['dashboard']`, `['forYou']`, `['likes']`, `['user']`, `['following']`, `['post', blog, id]`.
+  Persisted roots: `tagged`, `blog`, `dashboard`, `forYou`, `likes`; dropped on sign-out:
+  `dashboard`, `forYou`, `likes`, `user`, `following`.
 - `staleTime` 5 min for galleries, 1 h for blog info/avatars; cache persisted to MMKV
   with `maxAge` 24 h (gallery pages only; never auth).
 - Mutations are optimistic (like toggles instantly, rolls back on error) and
@@ -112,6 +114,7 @@ Tumblr API ──fetch──▶ api/client (auth, retry, zod) ──▶ endpoint
 | Tag | `GET /v2/tagged?tag=&limit=20&before=` | `before` = `timestamp` of last post (featured tags: `featured_timestamp`) | Legacy format only; `filter=text` to drop HTML |
 | Blog posts | `GET /v2/blog/{name}/posts?npf=true&limit=20&before=` (+`tag=`) | `before` = last post `timestamp` | Use `_links.next.query_params` when present |
 | Dashboard | `GET /v2/user/dashboard?npf=true&limit=20&offset=` | `offset` | `reblog_info=true` for trail attribution |
+| For You | `GET /v2/tabs/for_you?limit=20&cursor=` (undocumented) | opaque `cursor` from `_links.next.query_params.cursor`, else parsed from `href` | Elements filtered to `object_type: 'post'`; 403/404 → friendly "not offered" state |
 | Likes | `GET /v2/user/likes?limit=20&before=` | `before` = `liked_timestamp` | `offset` max 1000, so prefer `before` |
 | Following | `GET /v2/user/following?limit=20&offset=` | `offset` | |
 

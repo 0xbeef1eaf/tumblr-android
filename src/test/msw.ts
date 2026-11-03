@@ -5,6 +5,7 @@ import blogPosts from '@/api/fixtures/blog.posts.npf.json';
 import error404 from '@/api/fixtures/error.404.json';
 import error429 from '@/api/fixtures/error.429.json';
 import oauthToken from '@/api/fixtures/oauth.token.json';
+import forYou from '@/api/fixtures/tabs.for_you.json';
 import tagged from '@/api/fixtures/tagged.photography.json';
 import dashboard from '@/api/fixtures/user.dashboard.json';
 import following from '@/api/fixtures/user.following.json';
@@ -25,6 +26,7 @@ export const fixtures = {
   error429,
   oauthToken,
   tagged,
+  forYou,
   dashboard,
   following,
   userInfo,
@@ -57,6 +59,7 @@ export const handlers: HttpHandler[] = [
   ),
   http.get(`${API}/v2/user/info`, () => ok(userInfo)),
   http.get(`${API}/v2/user/dashboard`, () => ok(dashboard)),
+  http.get(`${API}/v2/tabs/for_you`, () => ok(forYou)),
   http.get(`${API}/v2/user/likes`, () => ok(likes)),
   http.get(`${API}/v2/user/following`, () => ok(following)),
   http.post(`${API}/v2/user/like`, empty),

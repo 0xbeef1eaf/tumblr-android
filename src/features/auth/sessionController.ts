@@ -26,7 +26,13 @@ import { createTokenManager, type TokenManager } from './tokenProvider';
 const logger = createLogger('session');
 
 /** Query roots that belong to the signed-in user and are dropped on sign-out. */
-export const USER_SCOPED_QUERY_ROOTS = ['dashboard', 'likes', 'user', 'following'] as const;
+export const USER_SCOPED_QUERY_ROOTS = [
+  'dashboard',
+  'forYou',
+  'likes',
+  'user',
+  'following',
+] as const;
 
 /**
  * Public reads that are fetched with the session's token when there is one (`auth: 'auto'`),

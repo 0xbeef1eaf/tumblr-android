@@ -210,7 +210,17 @@ describe('signOut', () => {
   it('clears tokens, session, optimistic state and viewer-specific queries', async () => {
     const { controller, store, client } = setup(tokens);
     await controller.bootstrap();
-    const roots = ['dashboard', 'likes', 'user', 'following', 'tagged', 'blog', 'post', 'search'];
+    const roots = [
+      'dashboard',
+      'forYou',
+      'likes',
+      'user',
+      'following',
+      'tagged',
+      'blog',
+      'post',
+      'search',
+    ];
     for (const root of roots) {
       client.setQueryData([root, 'x'], { root });
     }

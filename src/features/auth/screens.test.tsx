@@ -1,9 +1,13 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
+import { http, HttpResponse } from 'msw';
 
 import { setTokenProvider } from '@/api/client';
+import { API, server } from '@/test/msw';
 import { renderWithProviders } from '@/test/render';
 
 import DashboardRoute from '../../../app/(tabs)/dashboard';
+import ForYouRoute from '../../../app/(tabs)/for-you';
 import LikesRoute from '../../../app/(tabs)/likes';
 
 import { makeTestItem, resetAuthState, signInForTest } from './auth.testutil';
@@ -44,6 +48,38 @@ describe('dashboard route', () => {
     await renderWithProviders(<DashboardRoute />);
     expect(screen.queryByTestId('sign-in-prompt')).toBeNull();
     await waitFor(() => expect(screen.getAllByTestId('expo-image').length).toBeGreaterThan(0));
+  });
+});
+
+describe('for you route', () => {
+  it('shows a sign-in prompt to guests', async () => {
+    await renderWithProviders(<ForYouRoute />);
+    expect(screen.getByTestId('sign-in-prompt')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sign in with Tumblr' })).toBeTruthy();
+  });
+
+  it('shows the For You gallery when signed in', async () => {
+    signInForTest();
+    await renderWithProviders(<ForYouRoute />);
+    expect(screen.queryByTestId('sign-in-prompt')).toBeNull();
+    await waitFor(() => expect(screen.getAllByTestId('expo-image').length).toBeGreaterThan(0));
+  });
+
+  it.each([403, 404])('explains when Tumblr refuses the feed (%i)', async (status) => {
+    server.use(
+      http.get(`${API}/v2/tabs/for_you`, () =>
+        HttpResponse.json({ meta: { status, msg: 'Nope' } }, { status }),
+      ),
+    );
+    signInForTest();
+    await renderWithProviders(<ForYouRoute />);
+    expect(await screen.findByTestId('for-you-unavailable')).toBeTruthy();
+    expect(
+      screen.getByText("Tumblr doesn't offer this feed to third-party apps right now"),
+    ).toBeTruthy();
+    const navigate = jest.spyOn(router, 'navigate').mockImplementation(() => undefined);
+    await fireEvent.press(screen.getByRole('button', { name: 'Go to Dashboard' }));
+    expect(navigate).toHaveBeenCalledWith('/dashboard');
   });
 });
 

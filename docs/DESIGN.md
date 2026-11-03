@@ -25,9 +25,10 @@ Target: Android first (project name is `tumblr-android`), iOS kept working via E
 ```
 Root (expo-router)
 ├── (tabs)
-│   ├── index        Explore   — starter tags, recent searches, followed blogs (if signed in)
-│   ├── dashboard    Dashboard — signed-in only; media from followed blogs
+│   ├── dashboard    Dashboard — initial tab; media from followed blogs (guest: sign-in prompt)
+│   ├── for-you      For You   — Tumblr's recommendations (guest: sign-in prompt)
 │   ├── search       Search    — query → tag results / blog jump
+│   ├── index        Explore   — starter tags, recent searches, followed blogs (if signed in)
 │   ├── likes        Likes     — signed-in: /user/likes; guest: local bookmarks
 │   └── settings     Settings  — account, grid density, safe mode, cache
 ├── tag/[tag]              Gallery for a tag (also reached from a tag chip)
@@ -37,7 +38,11 @@ Root (expo-router)
 └── auth/sign-in           Tumblr sign-in page in an in-app WebView (modal)
 ```
 
-Tabs: Explore, Dashboard (hidden when signed out), Search, Likes, Settings.
+Tabs, in order: Dashboard, For You, Search, Explore, Likes, Settings (icons `albums`,
+`sparkles`, `search`, `compass`, `heart`, `settings`). All are always visible; Dashboard and
+For You show a sign-in prompt to guests. A plain launch opens Dashboard
+(`unstable_settings.initialRouteName` plus `app/+native-intent.ts`, which sends the launcher's
+root URL to `/dashboard`); Explore stays at `/`.
 
 ## 3. Screens
 
@@ -61,6 +66,15 @@ Tabs: Explore, Dashboard (hidden when signed out), Search, Likes, Settings.
 - Masonry gallery of media from `/user/dashboard?npf=true`.
 - Pull to refresh; infinite scroll via `since_id`/`offset` paging.
 - Empty state when the user follows nobody with media.
+- Guests: centred sign-in prompt (the tab is always shown).
+
+### 3.2b For You (`/for-you`, auth)
+- Masonry gallery of Tumblr's recommended posts from `GET /v2/tabs/for_you` — not in the
+  public API docs (Tumblr's own clients use it), so it may stop working (API.md).
+- Pull to refresh; infinite scroll with the opaque `cursor` from `_links.next`.
+- Heart / long-press like as on Dashboard.
+- Guests: sign-in prompt. 403/404 from Tumblr: "Tumblr doesn't offer this feed to
+  third-party apps right now" with a "Go to Dashboard" button. Other errors: retry message.
 
 ### 3.3 Search (`/search`)
 - Search bar auto-focused on tab open; debounced 300 ms.

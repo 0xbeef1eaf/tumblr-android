@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { act, renderRouter, screen, fireEvent } from 'expo-router/testing-library';
+import { act, renderRouter, screen, fireEvent, within } from 'expo-router/testing-library';
 import { Share } from 'react-native';
 
 import { useAuthStore } from '@/features/auth/authStore';
@@ -23,7 +23,8 @@ describe('navigation shell', () => {
 
   // Each route must mount its real screen (identified by a stable testID or text).
   it.each([
-    ['/', 'sign-in'],
+    ['/dashboard', 'sign-in-prompt'],
+    ['/for-you', 'sign-in-prompt'],
     ['/search', 'search-idle'],
     ['/likes', 'likes-guest-hint'],
     ['/settings', 'settings-screen'],
@@ -35,15 +36,26 @@ describe('navigation shell', () => {
     expect(await screen.findByTestId(testID)).toBeTruthy();
   });
 
-  it('/viewer with nothing to show goes straight back to the tabs', async () => {
-    await renderRouter('./app', { initialUrl: '/viewer' });
+  it('a cold start at / lands on Dashboard; Explore stays routable at /', async () => {
+    await renderRouter('./app', { initialUrl: '/' });
+    expect(await screen.findByTestId('sign-in-prompt')).toBeTruthy();
+    expect(screen).toHavePathname('/dashboard');
+    await act(async () => {
+      router.navigate('/');
+    });
     expect(await screen.findByTestId('sign-in')).toBeTruthy();
+    expect(screen).toHavePathname('/');
+  });
+
+  it('/viewer with nothing to show goes straight back to the tabs (Dashboard)', async () => {
+    await renderRouter('./app', { initialUrl: '/viewer' });
+    expect(await screen.findByTestId('sign-in-prompt')).toBeTruthy();
     expect(screen.queryByTestId('viewer')).toBeNull();
   });
 
   it('/auth/sign-in with no pending flow goes straight back to the tabs', async () => {
     await renderRouter('./app', { initialUrl: '/auth/sign-in' });
-    expect(await screen.findByTestId('sign-in')).toBeTruthy();
+    expect(await screen.findByTestId('sign-in-prompt')).toBeTruthy();
     expect(screen.queryByTestId('sign-in-webview')).toBeNull();
   });
 
@@ -90,16 +102,24 @@ describe('navigation shell', () => {
     );
   });
 
-  it('shows tabs, hiding Dashboard for guests', async () => {
-    await renderRouter('./app', { initialUrl: '/' });
-    expect(await screen.findByRole('tab', { name: /Explore/ })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /Search/ })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /Likes/ })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /Settings/ })).toBeTruthy();
-    expect(screen.queryByRole('tab', { name: /Dashboard/ })).toBeNull();
+  const TAB_ORDER = ['Dashboard', 'For You', 'Search', 'Explore', 'Likes', 'Settings'];
+  const tabLabels = () =>
+    screen
+      .getAllByRole('tab')
+      .map((tab) => TAB_ORDER.find((label) => within(tab).queryByText(label) !== null));
+
+  it('shows every tab to guests, in order, with Dashboard and For You prompting sign-in', async () => {
+    await renderRouter('./app', { initialUrl: '/dashboard' });
+    expect(await screen.findByTestId('sign-in-prompt')).toBeTruthy();
+    expect(tabLabels()).toEqual(TAB_ORDER);
+    await fireEvent.press(screen.getByRole('tab', { name: /For You/ }));
+    expect(screen).toHavePathname('/for-you');
+    expect(
+      await screen.findByText('Sign in to Tumblr to see photos, GIFs and video picked for you.'),
+    ).toBeTruthy();
   });
 
-  it('shows the Dashboard tab and route when signed in', async () => {
+  it('shows the Dashboard and For You feeds when signed in', async () => {
     // Stored tokens + a remembered user: AuthProvider's bootstrap keeps the session signed in.
     await sessionController.tokens.setTokens({
       accessToken: 'token',
@@ -108,11 +128,13 @@ describe('navigation shell', () => {
     useAuthStore.getState().setSignedIn({ name: 'pixelwanderer', primaryBlog: 'pixelwanderer' });
     await renderRouter('./app', { initialUrl: '/dashboard' });
     expect(await screen.findByRole('tab', { name: /Dashboard/ })).toBeTruthy();
+    expect(tabLabels()).toEqual(TAB_ORDER);
     expect(screen.queryByTestId('sign-in-prompt')).toBeNull();
-  });
 
-  it('does not show the dashboard to guests', async () => {
-    await renderRouter('./app', { initialUrl: '/dashboard' });
-    expect(screen.queryByRole('tab', { name: /Dashboard/ })).toBeNull();
+    await act(async () => {
+      router.navigate('/for-you');
+    });
+    expect(await screen.findByTestId('for-you-gallery')).toBeTruthy();
+    expect(screen.queryByTestId('sign-in-prompt')).toBeNull();
   });
 });

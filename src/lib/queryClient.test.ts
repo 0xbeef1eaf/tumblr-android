@@ -29,6 +29,7 @@ describe('queryClient', () => {
     [['blog', 'staff', 'posts', {}], true],
     [['blog', 'staff', 'info'], true],
     [['dashboard'], true],
+    [['forYou'], true],
     [['likes'], true],
     [['user'], false],
     [['following'], false],

@@ -1,9 +1,11 @@
 import { Tabs } from 'expo-router/js-tabs';
 import type { ColorValue } from 'react-native';
 
-import { useSession } from '@/features/auth';
 import { Icon, type IconName } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
+
+/** Cold start lands on Dashboard; `index` (Explore) stays routable at `/`. */
+export const unstable_settings = { initialRouteName: 'dashboard' };
 
 function tabIcon(name: IconName, focusedName: IconName) {
   function TabIcon({
@@ -22,9 +24,7 @@ function tabIcon(name: IconName, focusedName: IconName) {
 }
 
 export default function TabsLayout() {
-  const { status } = useSession();
   const { colors } = useTheme();
-  const signedIn = status === 'signedIn';
 
   return (
     <Tabs
@@ -36,21 +36,23 @@ export default function TabsLayout() {
         headerTintColor: colors.text,
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{ title: 'Explore', tabBarIcon: tabIcon('compass-outline', 'compass') }}
-      />
+      {/* Tab order is the order of these entries (DESIGN §2). Dashboard and For You are
+          always shown; guests see a sign-in prompt there. */}
       <Tabs.Screen
         name="dashboard"
-        options={{
-          title: 'Dashboard',
-          href: signedIn ? undefined : null,
-          tabBarIcon: tabIcon('albums-outline', 'albums'),
-        }}
+        options={{ title: 'Dashboard', tabBarIcon: tabIcon('albums-outline', 'albums') }}
+      />
+      <Tabs.Screen
+        name="for-you"
+        options={{ title: 'For You', tabBarIcon: tabIcon('sparkles-outline', 'sparkles') }}
       />
       <Tabs.Screen
         name="search"
         options={{ title: 'Search', tabBarIcon: tabIcon('search-outline', 'search') }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{ title: 'Explore', tabBarIcon: tabIcon('compass-outline', 'compass') }}
       />
       <Tabs.Screen
         name="likes"
