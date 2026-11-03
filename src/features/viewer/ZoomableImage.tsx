@@ -30,7 +30,7 @@ export interface ZoomableImageProps {
   /** Already-cached grid variant shown until `uri` arrives. */
   placeholderUri?: string;
   aspectRatio: number;
-  /** Viewport size in dp. */
+  /** Media box in dp (window minus safe-area insets); fit and pan bounds use it. */
   size: Size;
   /** The page is the current one; zoom resets when it stops being current. */
   active: boolean;

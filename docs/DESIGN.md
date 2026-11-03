@@ -102,6 +102,10 @@ Tabs: Explore, Dashboard (hidden when signed out), Search, Likes, Settings.
 - Tap toggles chrome: top bar (close, index "3 / 12"), bottom bar (blog name →
   blog, caption excerpt → post detail, like, share, save).
 - Swipe down to dismiss with scale/fade.
+- Media is fitted to the window minus the safe-area insets (status bar and display
+  cutout on top, navigation bar at the bottom, left/right in landscape), so nothing
+  sits under the camera cutout; the black backdrop stays full-bleed and zoom/pan
+  bounds use the same inset box.
 - Loads the highest-resolution variant appropriate to the screen (see
   ARCHITECTURE §5.3); shows the cached grid thumbnail until it arrives.
 

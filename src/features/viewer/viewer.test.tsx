@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { Dimensions, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { makeItem, makeItems } from '@/features/gallery/items.testutil';
 import { useRevealStore } from '@/features/gallery/revealStore';
@@ -9,6 +11,7 @@ import { useSettingsStore } from '@/features/settings/settingsStore';
 
 import { latestGesture, pagerProps, recordedGestures, videoPlayer } from './mocks.testutil';
 import { VideoPage } from './VideoPage';
+import { fitContain, maxTranslation } from './zoomMath';
 import { ViewerScreen } from './ViewerScreen';
 import { ZoomableImage } from './ZoomableImage';
 
@@ -139,6 +142,38 @@ describe('ViewerScreen', () => {
     await fireEvent.press(screen.getByTestId('viewer-reveal'));
     expect(screen.getByTestId('viewer-image-7:0-img').props.blurRadius).toBeUndefined();
     expect(screen.getByTestId('viewer-image-7:0-img').props.placeholder?.uri).toBeDefined();
+  });
+
+  it('keeps media inside the safe-area box (cutout / status bar / nav bar)', async () => {
+    const item = makeItem({ id: '9:0' });
+    useViewerStore.getState().open([item], 0);
+    const metrics = {
+      frame: { x: 0, y: 0, width: 400, height: 800 },
+      insets: { top: 48, bottom: 24, left: 0, right: 0 },
+    };
+    await render(
+      <SafeAreaProvider initialMetrics={metrics}>
+        <ViewerScreen />
+      </SafeAreaProvider>,
+    );
+    const window = Dimensions.get('window');
+    const box = StyleSheet.flatten(screen.getByTestId('viewer-box-9:0').props.style);
+    expect(box).toMatchObject({ position: 'absolute', top: 48, left: 0, width: window.width });
+    expect(box.height).toBe(window.height - 48 - 24);
+
+    // Zoom/pan bounds come from the box, not the window.
+    const pinch = latestGesture('pinch');
+    await act(async () => {
+      pinch.onBegin?.({});
+      pinch.onUpdate?.({ scale: 2, focalX: 0, focalY: 0 });
+      pinch.onFinalize?.({});
+    });
+    const boxSize = { width: box.width, height: box.height };
+    const bound = maxTranslation(fitContain(item.aspectRatio, boxSize), boxSize, 2);
+    const transform = StyleSheet.flatten(screen.getByTestId('viewer-image-9:0').props.style)
+      .transform as Record<string, number>[];
+    expect(transform[0]?.translateX).toBeCloseTo(bound.width);
+    expect(transform[1]?.translateY).toBeCloseTo(bound.height);
   });
 
   it('closes the store when unmounted', async () => {
