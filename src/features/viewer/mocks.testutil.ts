@@ -85,6 +85,8 @@ export function reanimatedMock() {
     useAnimatedStyle: (updater: () => Record<string, unknown>) => updater(),
     withTiming: <T>(value: T) => value,
     withSpring: <T>(value: T) => value,
+    withSequence: <T>(...values: T[]) => values[values.length - 1],
+    withDelay: <T>(_ms: number, value: T) => value,
     interpolate,
   };
 }

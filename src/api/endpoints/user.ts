@@ -3,11 +3,13 @@ import {
   DashboardResponseSchema,
   EmptyResponseSchema,
   FollowingResponseSchema,
+  ForYouResponseSchema,
   LikesResponseSchema,
   ReblogResponseSchema,
   UserInfoResponseSchema,
   type DashboardResponse,
   type FollowingResponse,
+  type ForYouPage,
   type LikesResponse,
   type ReblogResponse,
   type UserInfo,
@@ -41,6 +43,30 @@ export function getDashboard({
     query: { npf: true, reblog_info: true, limit, offset },
     auth: 'bearer',
     schema: DashboardResponseSchema,
+    signal,
+  });
+}
+
+export interface GetForYouParams {
+  /** Opaque cursor from the previous page's `_links.next`. */
+  cursor?: string;
+  limit?: number;
+  signal?: AbortSignal;
+}
+
+/**
+ * `GET /v2/tabs/for_you` (OAuth). Not in Tumblr's public API docs: Tumblr's own clients use
+ * it, so it may answer 403/404 to third-party apps or change shape without notice.
+ */
+export function getForYou({
+  cursor,
+  limit = 20,
+  signal,
+}: GetForYouParams = {}): Promise<ForYouPage> {
+  return apiFetch('/v2/tabs/for_you', {
+    query: { limit, cursor },
+    auth: 'bearer',
+    schema: ForYouResponseSchema,
     signal,
   });
 }

@@ -6,7 +6,6 @@
 
 export const MIN_SCALE = 1;
 export const MAX_SCALE = 4;
-export const DOUBLE_TAP_SCALE = 2.5;
 /** Below this the image counts as un-zoomed (pager scroll and dismiss re-enabled). */
 export const ZOOM_EPSILON = 0.01;
 /** Swipe-down distance (dp) that dismisses the viewer on release. */

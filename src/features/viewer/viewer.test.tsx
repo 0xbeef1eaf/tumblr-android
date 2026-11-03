@@ -1,6 +1,9 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
+import { Dimensions, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { makeItem, makeItems } from '@/features/gallery/items.testutil';
 import { useRevealStore } from '@/features/gallery/revealStore';
@@ -9,8 +12,8 @@ import { useSettingsStore } from '@/features/settings/settingsStore';
 
 import { latestGesture, pagerProps, recordedGestures, videoPlayer } from './mocks.testutil';
 import { VideoPage } from './VideoPage';
+import { fitContain, maxTranslation } from './zoomMath';
 import { ViewerScreen } from './ViewerScreen';
-import { ZoomableImage } from './ZoomableImage';
 
 jest.mock('react-native-gesture-handler', () =>
   jest.requireActual('./mocks.testutil').gestureHandlerMock(),
@@ -25,6 +28,10 @@ jest.mock(
   'expo-media-library',
   () => jest.requireActual('./mocks.testutil').mediaMocks().mediaLibrary,
 );
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Light: 'light' },
+}));
 jest.mock('expo-file-system', () => jest.requireActual('./mocks.testutil').mediaMocks().fileSystem);
 
 const selectPage = (position: number) =>
@@ -95,10 +102,38 @@ describe('ViewerScreen', () => {
     useViewerStore.getState().open(makeItems(3), 0);
     await render(<ViewerScreen />);
     expect(pagerProps.current?.scrollEnabled).toBe(true);
-    const doubleTap = latestGesture('tap', (c) => c.numberOfTaps === 2);
-    await act(async () => doubleTap.onActivate?.({ x: 100, y: 100 }));
+    const pinch = latestGesture('pinch');
+    await act(async () => {
+      pinch.onBegin?.({});
+      pinch.onUpdate?.({ scale: 2, focalX: 100, focalY: 100 });
+      pinch.onFinalize?.({});
+    });
     expect(pagerProps.current?.scrollEnabled).toBe(false);
     expect(latestGesture('pan', (c) => c.activeOffsetY !== undefined).enabled).toBe(false);
+  });
+
+  it('likes the current item on double tap with a heart burst and a haptic tick', async () => {
+    const items = makeItems(3);
+    // Last page current: the most recently recorded gesture belongs to it.
+    useViewerStore.getState().open(items, 2);
+    const onDoubleTap = jest.fn();
+    await render(<ViewerScreen onDoubleTap={onDoubleTap} />);
+    expect(screen.queryByTestId('heart-burst')).toBeNull();
+    const doubleTap = latestGesture('tap', (c) => c.numberOfTaps === 2 && c.enabled === true);
+    await act(async () => doubleTap.onActivate?.({ x: 10, y: 10 }));
+    expect(onDoubleTap).toHaveBeenCalledWith(items[2]);
+    expect(Haptics.impactAsync).toHaveBeenCalledWith('light');
+    const burst = screen.getByTestId('heart-burst');
+    expect(burst.props.pointerEvents).toBe('none');
+    // Double tap no longer zooms.
+    expect(pagerProps.current?.scrollEnabled).toBe(true);
+    await waitFor(() => expect(screen.queryByTestId('heart-burst')).toBeNull());
+  });
+
+  it('turns double tap off without an onDoubleTap handler', async () => {
+    useViewerStore.getState().open(makeItems(1), 0);
+    await render(<ViewerScreen />);
+    expect(latestGesture('tap', (c) => c.numberOfTaps === 2).enabled).toBe(false);
   });
 
   it('toggles chrome on single tap and navigates from the bottom bar', async () => {
@@ -141,43 +176,43 @@ describe('ViewerScreen', () => {
     expect(screen.getByTestId('viewer-image-7:0-img').props.placeholder?.uri).toBeDefined();
   });
 
+  it('keeps media inside the safe-area box (cutout / status bar / nav bar)', async () => {
+    const item = makeItem({ id: '9:0' });
+    useViewerStore.getState().open([item], 0);
+    const metrics = {
+      frame: { x: 0, y: 0, width: 400, height: 800 },
+      insets: { top: 48, bottom: 24, left: 0, right: 0 },
+    };
+    await render(
+      <SafeAreaProvider initialMetrics={metrics}>
+        <ViewerScreen />
+      </SafeAreaProvider>,
+    );
+    const window = Dimensions.get('window');
+    const box = StyleSheet.flatten(screen.getByTestId('viewer-box-9:0').props.style);
+    expect(box).toMatchObject({ position: 'absolute', top: 48, left: 0, width: window.width });
+    expect(box.height).toBe(window.height - 48 - 24);
+
+    // Zoom/pan bounds come from the box, not the window.
+    const pinch = latestGesture('pinch');
+    await act(async () => {
+      pinch.onBegin?.({});
+      pinch.onUpdate?.({ scale: 2, focalX: 0, focalY: 0 });
+      pinch.onFinalize?.({});
+    });
+    const boxSize = { width: box.width, height: box.height };
+    const bound = maxTranslation(fitContain(item.aspectRatio, boxSize), boxSize, 2);
+    const transform = StyleSheet.flatten(screen.getByTestId('viewer-image-9:0').props.style)
+      .transform as Record<string, number>[];
+    expect(transform[0]?.translateX).toBeCloseTo(bound.width);
+    expect(transform[1]?.translateY).toBeCloseTo(bound.height);
+  });
+
   it('closes the store when unmounted', async () => {
     useViewerStore.getState().open(makeItems(2), 0);
     const { unmount } = await render(<ViewerScreen />);
     await act(async () => unmount());
     expect(useViewerStore.getState().isOpen).toBe(false);
-  });
-});
-
-describe('ZoomableImage', () => {
-  const size = { width: 400, height: 800 };
-
-  it('renders and reports zoom changes from pinch and double tap', async () => {
-    const onZoomChange = jest.fn();
-    await render(
-      <ZoomableImage
-        uri="https://x/full.jpg"
-        placeholderUri="https://x/grid.jpg"
-        aspectRatio={0.5}
-        size={size}
-        active
-        accessibilityLabel="Image from staff"
-        onZoomChange={onZoomChange}
-      />,
-    );
-    expect(screen.getByLabelText('Image from staff')).toBeTruthy();
-    const pinch = latestGesture('pinch');
-    await act(async () => {
-      pinch.onBegin?.({});
-      pinch.onUpdate?.({ scale: 2, focalX: 200, focalY: 400 });
-      pinch.onFinalize?.({});
-    });
-    expect(onZoomChange).toHaveBeenLastCalledWith(true);
-    expect(latestGesture('pan').enabled).toBe(true);
-
-    const doubleTap = latestGesture('tap', (c) => c.numberOfTaps === 2);
-    await act(async () => doubleTap.onActivate?.({ x: 0, y: 0 }));
-    expect(onZoomChange).toHaveBeenLastCalledWith(false);
   });
 });
 

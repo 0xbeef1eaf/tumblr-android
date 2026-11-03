@@ -7,6 +7,7 @@ import { API, fixtures, server } from '@/test/msw';
 import { createWrapper, makeTestItem, resetAuthState, signInForTest } from './auth.testutil';
 import { useBookmarksStore } from './bookmarksStore';
 import { useDashboard } from './useDashboard';
+import { useForYou } from './useForYou';
 import { useLikes } from './useLikes';
 
 beforeEach(() => resetAuthState());
@@ -92,5 +93,35 @@ describe('useLikes', () => {
     const { result } = await renderHook(() => useLikes(), { wrapper: createWrapper() });
     await waitFor(() => expect(result.current.items.length).toBeGreaterThan(0));
     expect(result.current.items.some((i) => i.id === 'x:0')).toBe(false);
+  });
+});
+
+describe('useForYou', () => {
+  it('is disabled for guests', async () => {
+    const queries = recordQueries('/v2/tabs/for_you');
+    const { result } = await renderHook(() => useForYou(), { wrapper: createWrapper() });
+    expect(result.current.items).toEqual([]);
+    expect(result.current.isLoading).toBe(false);
+    expect(queries).toHaveLength(0);
+  });
+
+  it('loads posts and pages with the cursor from _links.next', async () => {
+    signInForTest();
+    const queries = recordQueries('/v2/tabs/for_you');
+    const { result } = await renderHook(() => useForYou(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.items.length).toBeGreaterThan(0));
+    expect(queries[0]?.cursor).toBeUndefined();
+    expect(result.current.hasNextPage).toBe(true);
+    server.use(
+      http.get(`${API}/v2/tabs/for_you`, () =>
+        HttpResponse.json({ meta: { status: 200, msg: 'OK' }, response: { timeline: {} } }),
+      ),
+    );
+    await act(async () => {
+      await result.current.fetchNextPage();
+    });
+    const cursor = fixtures.forYou.response.timeline._links.next.query_params.cursor;
+    expect(queries[1]?.cursor).toBe(cursor);
+    await waitFor(() => expect(result.current.hasNextPage).toBe(false));
   });
 });

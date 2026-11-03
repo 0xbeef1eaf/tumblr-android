@@ -15,7 +15,7 @@ export const HOUR = 60 * MINUTE;
 export const PERSIST_MAX_AGE = 24 * HOUR;
 
 /** Only gallery pages are persisted (ARCHITECTURE §3) — never auth or user data. */
-export const PERSISTED_QUERY_ROOTS = ['tagged', 'blog', 'dashboard', 'likes'] as const;
+export const PERSISTED_QUERY_ROOTS = ['tagged', 'blog', 'dashboard', 'forYou', 'likes'] as const;
 
 export function shouldPersistQuery(query: Pick<Query, 'queryKey' | 'state'>): boolean {
   const root = query.queryKey[0];
