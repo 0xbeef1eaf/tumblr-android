@@ -157,6 +157,10 @@ root URL to `/dashboard`); Explore stays at `/`.
 - Account: Sign in / Sign out, shows primary blog name.
 - Grid: columns 2 / 3 (default 2 on phones < 600 dp, 3 otherwise), show
   blog name overlay on tiles (on/off).
+- Feed buffer: for Dashboard and for For You separately, how many posts stay loaded
+  ahead of the one shown in the full-screen viewer (10 / 20 / 40 / 80; default 20 for
+  Dashboard, 40 for For You). Larger values mean more swiping before a wait, for more data
+  and API calls.
 - Content: Safe mode (blur items whose post is flagged by Tumblr or whose
   blog `is_adult`/`is_nsfw`; default on), autoplay GIFs on cellular (default on),
   autoplay video (default off).

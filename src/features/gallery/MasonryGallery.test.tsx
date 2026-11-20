@@ -99,6 +99,42 @@ describe('MasonryGallery', () => {
     expect(useViewerStore.getState().index).toBe(1);
   });
 
+  it('reads ahead for the open viewer until `viewerBuffer` items are loaded past it', async () => {
+    const onEndReached = jest.fn();
+    // A grid long enough that its own end-reached stays out of the way (2 columns × 100 px
+    // tiles in a 900 px viewport, threshold two screens).
+    const base = { onEndReached, viewerBuffer: 80 };
+    const first = makeItems(60);
+    const { rerender } = await render(<MasonryGallery {...props({ ...base, items: first })} />);
+    onEndReached.mockClear();
+    await fireEvent.press(screen.getByTestId('tile-p1:0'));
+    expect(onEndReached).toHaveBeenCalledTimes(1); // 58 ahead < 80
+    // A thin page lands: still short, so another fetch follows without any swipe.
+    const second = [...first, ...makeItems(3, 'q')];
+    await rerender(
+      <MasonryGallery {...props({ ...base, items: first, isFetchingNextPage: true })} />,
+    );
+    await rerender(<MasonryGallery {...props({ ...base, items: second })} />);
+    expect(onEndReached).toHaveBeenCalledTimes(2);
+    // Enough items past the current one: no more fetching until the viewer moves on.
+    const full = [...second, ...makeItems(30, 'r')];
+    await rerender(
+      <MasonryGallery {...props({ ...base, items: second, isFetchingNextPage: true })} />,
+    );
+    await rerender(<MasonryGallery {...props({ ...base, items: full })} />);
+    expect(onEndReached).toHaveBeenCalledTimes(2); // 91 ahead
+    await act(async () => useViewerStore.getState().setIndex(25)); // 67 ahead
+    expect(onEndReached).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not read ahead with the viewer closed or at the end of the feed', async () => {
+    const onEndReached = jest.fn();
+    const items = makeItems(60);
+    await render(<MasonryGallery {...props({ onEndReached, items, hasNextPage: false })} />);
+    await fireEvent.press(screen.getByTestId('tile-p1:0'));
+    expect(onEndReached).not.toHaveBeenCalled();
+  });
+
   it('shows the empty state and the next-page footer', async () => {
     const { rerender } = await render(
       <MasonryGallery {...props({ items: [], emptyState: <Text>Nothing tagged #x yet</Text> })} />,

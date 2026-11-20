@@ -80,6 +80,18 @@ describe('SettingsScreen', () => {
     expect(useSettingsStore.getState().columns).toBe(2);
   });
 
+  it('sets the Dashboard and For You buffer sizes independently', async () => {
+    await render(<SettingsScreen />);
+    expect(screen.getByTestId('dashboard-buffer-20').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByTestId('for-you-buffer-40').props.accessibilityState.selected).toBe(true);
+    await fireEvent.press(screen.getByTestId('dashboard-buffer-80'));
+    expect(useSettingsStore.getState()).toMatchObject({ dashboardBuffer: 80, forYouBuffer: 40 });
+    await fireEvent.press(screen.getByTestId('for-you-buffer-10'));
+    expect(useSettingsStore.getState()).toMatchObject({ dashboardBuffer: 80, forYouBuffer: 10 });
+    expect(screen.getByTestId('for-you-buffer-10').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText('Dashboard buffer size')).toBeTruthy();
+  });
+
   it('clears the image cache after confirmation and shows a toast', async () => {
     await render(<SettingsScreen />);
     await fireEvent.press(screen.getByTestId('row-clear-cache'));
@@ -161,7 +173,15 @@ describe('SettingsScreen', () => {
   it('renders every section', async () => {
     await render(<SettingsScreen />);
     await act(async () => {});
-    for (const id of ['tumblr-api', 'account', 'grid', 'content', 'storage', 'about']) {
+    for (const id of [
+      'tumblr-api',
+      'account',
+      'grid',
+      'feed-buffer',
+      'content',
+      'storage',
+      'about',
+    ]) {
       expect(screen.getByTestId(`section-${id}`)).toBeTruthy();
     }
   });

@@ -31,6 +31,8 @@ describe('settingsStore', () => {
       safeMode: true,
       autoplayGifsOnCellular: true,
       autoplayVideo: false,
+      dashboardBuffer: 20,
+      forYouBuffer: 40,
     });
   });
 
@@ -42,6 +44,8 @@ describe('settingsStore', () => {
       s.setSafeMode(false);
       s.setAutoplayGifsOnCellular(false);
       s.setAutoplayVideo(true);
+      s.setDashboardBuffer(80);
+      s.setForYouBuffer(10);
     });
     const state = useSettingsStore.getState();
     expect(state).toMatchObject({
@@ -50,6 +54,8 @@ describe('settingsStore', () => {
       safeMode: false,
       autoplayGifsOnCellular: false,
       autoplayVideo: true,
+      dashboardBuffer: 80,
+      forYouBuffer: 10,
     });
     const persisted = JSON.parse(appStorage.getString(SETTINGS_STORE_KEY) ?? '{}');
     expect(persisted.state).toEqual({
@@ -58,6 +64,8 @@ describe('settingsStore', () => {
       safeMode: false,
       autoplayGifsOnCellular: false,
       autoplayVideo: true,
+      dashboardBuffer: 80,
+      forYouBuffer: 10,
     });
     expect(persisted.version).toBe(1);
   });
@@ -69,6 +77,18 @@ describe('settingsStore', () => {
     );
     await useSettingsStore.persist.rehydrate();
     expect(useSettingsStore.getState()).toMatchObject({ columns: 3, safeMode: false });
+  });
+
+  it('gives settings saved before the feed buffers existed their defaults', async () => {
+    // Writing to the store persists it, so seed the old-format payload afterwards.
+    useSettingsStore.setState(defaultSettings(400));
+    appStorage.set(SETTINGS_STORE_KEY, JSON.stringify({ state: { columns: 3 }, version: 1 }));
+    await useSettingsStore.persist.rehydrate();
+    expect(useSettingsStore.getState()).toMatchObject({
+      columns: 3,
+      dashboardBuffer: 20,
+      forYouBuffer: 40,
+    });
   });
 
   it('reset restores defaults', () => {
