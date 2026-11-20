@@ -42,7 +42,7 @@ export function LikesScreen() {
         isFetchingNextPage={feed.isFetchingNextPage}
         hasNextPage={feed.hasNextPage}
         onEndReached={() => void feed.fetchNextPage()}
-        onRefresh={() => void feed.refetch()}
+        onRefresh={() => void feed.refresh()}
         isRefetching={feed.isRefetching}
         onLike={onLike}
         isLiked={isLiked}

@@ -37,6 +37,7 @@ export function useLikes(): GalleryFeed {
       hasNextPage: false,
       fetchNextPage: noop,
       refetch: noop,
+      refresh: noop,
       isRefetching: false,
       error: null,
     }),

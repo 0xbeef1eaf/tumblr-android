@@ -203,6 +203,7 @@ root URL to `/dashboard`); Explore stays at `/`.
 |---|---|
 | Loading first page | Skeleton masonry (12 tiles, random aspect ratios) |
 | Loading next page | 3-tile skeleton row at the bottom |
+| Pull to refresh | Spinner over the current first page; the feed restarts from a fresh page 1 (older pages are dropped and load again on scroll) |
 | Empty tag | Illustration + "Nothing tagged #x yet" + "Try: …" suggestions |
 | Blog not found (404) | "This blog doesn't exist or is private" |
 | No consumer key | "Connect your Tumblr app" card with "Open Settings" (§3.1) |

@@ -1,4 +1,10 @@
-import { useInfiniteQuery, type InfiniteData, type QueryKey } from '@tanstack/react-query';
+import {
+  hashKey,
+  useInfiniteQuery,
+  useQueryClient,
+  type InfiniteData,
+  type QueryKey,
+} from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo } from 'react';
 
 import type { GalleryItem } from '@/domain/galleryItem';
@@ -30,7 +36,13 @@ export interface GalleryPaging {
   hasNextPage: boolean;
   /** No-op while a page is in flight or when there is nothing more to load. */
   fetchNextPage: () => Promise<unknown>;
+  /** Re-requests every loaded page in order (error-state Retry). */
   refetch: () => Promise<unknown>;
+  /**
+   * Pull-to-refresh: trims the cache to its first page and refetches only that page, so a
+   * personalised feed starts over with fresh content (old page-1 items stay visible meanwhile).
+   */
+  refresh: () => Promise<unknown>;
   isRefetching: boolean;
   error: Error | null;
 }
@@ -98,6 +110,11 @@ export function useGalleryPaging<TPage, TCursor extends Cursor = number>({
   getNextCursor,
   enabled = true,
 }: UseGalleryPagingOptions<TPage, TCursor>): GalleryPaging {
+  const queryClient = useQueryClient();
+  const keyHash = hashKey(queryKey);
+  // Callers pass a fresh array each render; its identity only needs to follow the hash.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableKey = useMemo(() => queryKey, [keyHash]);
   const query = useInfiniteQuery<
     GalleryPage<TPage>,
     Error,
@@ -140,6 +157,13 @@ export function useGalleryPaging<TPage, TCursor extends Cursor = number>({
     return fetchNext();
   }, [fetchNext, hasNextPage, isFetchingNextPage]);
   const refetch = useCallback((): Promise<unknown> => refetchAll(), [refetchAll]);
+  const refresh = useCallback((): Promise<unknown> => {
+    queryClient.setQueryData<InfiniteData<GalleryPage<TPage>, TCursor | undefined>>(
+      stableKey,
+      (data) => data && { pages: data.pages.slice(0, 1), pageParams: data.pageParams.slice(0, 1) },
+    );
+    return refetchAll();
+  }, [queryClient, stableKey, refetchAll]);
 
   return {
     items,
@@ -148,6 +172,7 @@ export function useGalleryPaging<TPage, TCursor extends Cursor = number>({
     hasNextPage,
     fetchNextPage,
     refetch,
+    refresh,
     isRefetching: query.isRefetching && !isFetchingNextPage,
     error: query.error,
   };

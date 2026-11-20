@@ -23,9 +23,14 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={createTestQueryClient()}>{children}</QueryClientProvider>;
 }
 
-function setup(pages: Record<string, FakePage> | ((cursor: number | undefined) => FakePage)) {
+type PageSource =
+  Record<string, FakePage> | ((cursor: number | undefined) => FakePage | Promise<FakePage>);
+
+function setup(pages: PageSource) {
   const fetchPage = jest.fn(async (cursor: number | undefined) => {
-    const page = typeof pages === 'function' ? pages(cursor) : pages[String(cursor ?? 'first')];
+    const page = await (typeof pages === 'function'
+      ? pages(cursor)
+      : pages[String(cursor ?? 'first')]);
     if (!page) throw new Error(`no page ${cursor}`);
     return page;
   });
@@ -177,6 +182,38 @@ describe('useGalleryPaging', () => {
     });
     await waitFor(() => expect(result.current.hasNextPage).toBe(false));
     expect(fetchPage.mock.calls.map((c) => c[0])).toEqual([undefined, 10]);
+  });
+
+  it('refresh() starts over from a fresh first page', async () => {
+    let firstPageCalls = 0;
+    let release: () => void = () => undefined;
+    const fresh = new Promise<FakePage>((resolve) => {
+      release = () => resolve({ ids: ['x:0', 'y:0'], next: 10 });
+    });
+    const { fetchPage, render } = setup((cursor) => {
+      if (cursor !== undefined) return { ids: ['c:0'], next: 20 };
+      firstPageCalls += 1;
+      return firstPageCalls === 1 ? { ids: ['a:0', 'b:0'], next: 10 } : fresh;
+    });
+    const { result } = await render();
+    await waitFor(() => expect(result.current.items).toHaveLength(2));
+    await act(async () => {
+      await result.current.fetchNextPage();
+    });
+    await waitFor(() => expect(result.current.items).toHaveLength(3));
+    fetchPage.mockClear();
+
+    await act(async () => {
+      void result.current.refresh();
+    });
+    // The old first page stays visible (with the refresh spinner) while page 1 reloads.
+    await waitFor(() => expect(result.current.items.map((i) => i.id)).toEqual(['a:0', 'b:0']));
+    expect(result.current.isRefetching).toBe(true);
+    await act(async () => release());
+    await waitFor(() => expect(result.current.items.map((i) => i.id)).toEqual(['x:0', 'y:0']));
+    expect(fetchPage.mock.calls.map((c) => c[0])).toEqual([undefined]);
+    expect(result.current.hasNextPage).toBe(true);
+    expect(result.current.isRefetching).toBe(false);
   });
 
   it('keeps the items reference stable across unrelated re-renders', async () => {

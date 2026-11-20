@@ -106,6 +106,11 @@ Tumblr API ──fetch──▶ api/client (auth, retry, zod) ──▶ endpoint
   with `maxAge` 24 h (gallery pages only; never auth).
 - Mutations are optimistic (like toggles instantly, rolls back on error) and
   invalidate `['likes']`.
+- Pull-to-refresh calls `useGalleryPaging().refresh()`: it trims the cached infinite data
+  to its first page (`setQueryData` → `pages`/`pageParams` sliced to 1) and refetches, so
+  only page 1 is requested, the old first-page items stay visible under the spinner
+  (`isRefetching`), and the list re-grows from fresh content. `refetch()` (every loaded
+  page, in order) is kept for the error-state Retry buttons.
 
 ## 4. Pagination strategy per source
 
