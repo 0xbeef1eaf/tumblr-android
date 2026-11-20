@@ -3,6 +3,7 @@ export { GallerySkeleton, type GallerySkeletonProps } from './GallerySkeleton';
 export {
   columnWidthDp,
   columnWidthPx,
+  displayVariants,
   filterByKind,
   formatDuration,
   gridVariant,

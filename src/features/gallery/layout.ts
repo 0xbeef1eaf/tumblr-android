@@ -1,13 +1,19 @@
 import { PixelRatio } from 'react-native';
 
 import type { GalleryItem, MediaKind } from '@/domain/galleryItem';
-import { clampAspect, GRID_GIF_MAX_WIDTH, GRID_MAX_WIDTH, pickVariant } from '@/domain/media';
+import {
+  clampAspect,
+  GRID_GIF_MAX_WIDTH,
+  GRID_MAX_WIDTH,
+  isGifVariant,
+  pickVariant,
+} from '@/domain/media';
 import { layout } from '@/ui/theme';
 
 export type KindFilter = 'all' | MediaKind;
 
 /** At most this many GIFs animate at once (ARCHITECTURE §8). */
-export const MAX_ANIMATING_GIFS = 6;
+export const MAX_ANIMATING_GIFS = 10;
 export const SKELETON_TILE_COUNT = 12;
 export const FOOTER_SKELETON_COUNT = 3;
 
@@ -27,9 +33,17 @@ export function columnWidthPx(windowWidth: number, columns: number, ratio = Pixe
   return Math.round(columnWidthDp(windowWidth, columns) * ratio);
 }
 
-/** The variant a grid tile shows; the viewer reuses it as its (cached) placeholder. */
+/** Variants an item may display: a GIF never falls back to a still (that is `posterUrl`). */
+export function displayVariants(item: Pick<GalleryItem, 'kind' | 'variants'>) {
+  return item.kind === 'gif' ? item.variants.filter(isGifVariant) : item.variants;
+}
+
+/**
+ * The variant a grid tile shows; the viewer reuses it as its (cached) placeholder. GIFs:
+ * the narrowest `.gif` ≥ the column among those ≤ GRID_GIF_MAX_WIDTH, else the largest of them.
+ */
 export function gridVariant(item: Pick<GalleryItem, 'kind' | 'variants'>, widthPx: number) {
-  return pickVariant(item.variants, widthPx, {
+  return pickVariant(displayVariants(item), widthPx, {
     maxWidth: item.kind === 'gif' ? GRID_GIF_MAX_WIDTH : GRID_MAX_WIDTH,
   });
 }

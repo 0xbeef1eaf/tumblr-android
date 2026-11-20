@@ -26,6 +26,23 @@ export function makeItem(overrides: Partial<GalleryItem> & { id: string }): Gall
   };
 }
 
+/** A GIF item: animated `.gif` variants only (as the normaliser produces). */
+export function makeGif(overrides: Partial<GalleryItem> & { id: string }): GalleryItem {
+  const postId = overrides.postId ?? overrides.id.split(':')[0] ?? overrides.id;
+  const url = (w: number) => `https://64.media.tumblr.com/${postId}/s${w}x${w}/a.gif`;
+  return makeItem({
+    kind: 'gif',
+    variants: [1280, 540, 400, 250].map((w) => ({
+      url: url(w),
+      width: w,
+      height: w,
+      type: 'image/gif',
+    })),
+    aspectRatio: 1,
+    ...overrides,
+  });
+}
+
 export function makeItems(count: number, prefix = 'p'): GalleryItem[] {
   return Array.from({ length: count }, (_, i) => makeItem({ id: `${prefix}${i}:0` }));
 }

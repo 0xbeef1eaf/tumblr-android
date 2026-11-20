@@ -2,8 +2,7 @@ import { z } from 'zod';
 
 import { idString, lenientArray, looseNumber, opt } from './util';
 
-/** A single media object (image variant, video file, poster). */
-export const NpfMediaSchema = z.looseObject({
+const NpfMediaBaseSchema = z.looseObject({
   url: z.string(),
   type: opt(z.string()),
   width: opt(looseNumber),
@@ -11,6 +10,13 @@ export const NpfMediaSchema = z.looseObject({
   original_dimensions_missing: opt(z.boolean()),
   has_original_dimensions: opt(z.boolean()),
   cropped: opt(z.boolean()),
+});
+/** A still frame: a block-level `poster` entry or a media object's own `poster`. */
+export type NpfStill = z.infer<typeof NpfMediaBaseSchema>;
+
+/** A single media object (image variant, video file, poster); GIFs may carry a `poster`. */
+export const NpfMediaSchema = NpfMediaBaseSchema.extend({
+  poster: opt(z.union([NpfMediaBaseSchema, lenientArray(NpfMediaBaseSchema)])),
 });
 export type NpfMedia = z.infer<typeof NpfMediaSchema>;
 

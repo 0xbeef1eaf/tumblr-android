@@ -13,7 +13,7 @@ export const GIF_VIEWABILITY: ViewabilityConfig = { itemVisiblePercentThreshold:
 
 const NO_GIFS: ReadonlySet<string> = new Set();
 
-/** Settings → "Autoplay GIFs on cellular" (DESIGN §3.8): off means posters only on mobile data. */
+/** Settings → "Autoplay GIFs on cellular" (DESIGN §3.8): off means stills only on mobile data. */
 export function gifAutoplayAllowed(isCellular: boolean, autoplayOnCellular: boolean): boolean {
   return !isCellular || autoplayOnCellular;
 }
@@ -25,9 +25,10 @@ function sameSet(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
 }
 
 /**
- * Tracks which visible GIFs may animate (≤ 6, ARCHITECTURE §8). Feed `onViewableItemsChanged`
- * to FlashList; off-screen tiles get `autoplay={false}`. On cellular with the autoplay setting
- * off nothing animates: tiles show the first frame plus the GIF badge, the viewer still plays.
+ * Tracks which visible GIFs may animate (≤ MAX_ANIMATING_GIFS = 10, ARCHITECTURE §8). Feed
+ * `onViewableItemsChanged` to FlashList; every other GIF tile shows a still (poster or paused
+ * GIF). On cellular with the autoplay setting off nothing animates: tiles show the still plus
+ * the GIF badge, the viewer still plays.
  */
 export function useVisibleGifs() {
   const { isCellular } = useNetworkState();

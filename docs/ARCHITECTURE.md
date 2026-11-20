@@ -151,7 +151,9 @@ interface GalleryItem {
   postUrl: string;
   timestamp: number;        // unix seconds
   kind: MediaKind;
-  variants: MediaVariant[]; // sorted widest → narrowest; for video this is the poster
+  variants: MediaVariant[]; // sorted widest → narrowest; for video this is the poster;
+                            // for GIFs animated `.gif` entries only
+  posterUrl?: string;       // GIFs: still frame (NPF `poster`) near grid width
   videoUrl?: string;        // native tumblr video only; embeds fall back to postUrl
   durationMs?: number;
   aspectRatio: number;      // width/height of the original, unclamped
@@ -171,7 +173,10 @@ interface GalleryItem {
   `trail[i].content`** (reblogs of photosets have media only in the trail);
   emit an item per `image` block and per `video` block with `provider === 'tumblr'`
   (other providers emit an image item from `poster` with `videoUrl` undefined).
-  GIF detection: any variant `type === 'image/gif'` or url ends in `.gif`.
+  GIF detection: any variant `type === 'image/gif'` or url ends in `.gif`. A GIF item's
+  `variants` keep only those animated entries; still frames (block-level `poster`, a
+  media entry's own `poster`, non-GIF media) become `posterUrl` (the narrowest ≥ 540 px,
+  else the widest).
 - Legacy `photo` posts: `photos[]` → each has `original_size` + `alt_sizes`;
   GIF by extension. Legacy `video` with `video_url`: one item, poster from
   `thumbnail_url`. Other legacy types: no items.
@@ -183,7 +188,9 @@ interface GalleryItem {
 Return the narrowest variant whose `width >= targetWidthPx`; if none, the widest.
 Grid target = `columnWidthDp * PixelRatio.get()`; viewer target = screen width px.
 Tumblr serves 75/100/250/400/500/540/640/1280/2048 widths; GIFs should prefer
-≤ 540 in the grid for bandwidth.
+≤ 540 in the grid for bandwidth: a GIF tile picks among `.gif` variants only
+(`displayVariants`), the narrowest ≥ the column among those ≤ 540 px, else the largest
+of them — never a still.
 
 ## 6. Networking details
 
@@ -277,9 +284,14 @@ The secret is theirs, on their own device, so the direct exchange is fine in eve
   `transition={200}`, `placeholder={{ backgroundColor }}`; grid variants ≤ 640 px.
 - FlashList `estimatedItemSize` from median aspect; `drawDistance` 3 screens;
   `onEndReachedThreshold` 2 (screens).
-- GIFs: at most 6 animating on screen; off-screen tiles get `autoplay={false}`. On
-  cellular with "Autoplay GIFs on cellular" off, no tile animates (first frame + `GIF`
-  badge); the viewer still plays the GIF on tap.
+- GIFs: at most 10 animating on screen (`MAX_ANIMATING_GIFS`). expo-image on Android does
+  not reliably restart an animation when `autoplay` flips false → true on a recycled
+  view, so a GIF tile that may not animate renders a still (`posterUrl`, else the GIF
+  with `autoplay={false}`), and one that may renders the animated GIF with `autoplay` and
+  an `Image` `key` that includes the play state, so it remounts and starts. On cellular
+  with "Autoplay GIFs on cellular" off, no tile animates (still + `GIF` badge); the viewer
+  still plays the GIF. Viewer GIF pages use `autoplay && active` and key the `Image` by
+  `active`, so swiping back to a GIF restarts it.
 - Network state: one app-lifetime `expo-network` listener (`src/lib/network.ts`) shared by
   every `useNetworkState()` via `useSyncExternalStore`; only changes to
   `isConnected`/`isCellular` re-render. The root layout feeds it to react-query's

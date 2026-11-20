@@ -111,7 +111,8 @@ root URL to `/dashboard`); Explore stays at `/`.
 - Receives a list of `GalleryItem` ids + start index from a shared in-memory
   store (not via URL, to avoid serialising large arrays).
 - Horizontal pager (one item per page), each page a pinch-zoom/pan image
-  (zoom is pinch only), GIFs animate, video plays via `expo-video` with native
+  (zoom is pinch only), GIFs animate (the current page only, restarting when swiped back
+  to; never the poster still), video plays via `expo-video` with native
   controls, muted by default.
 - Double-tap on an image **likes** the post (never unlikes; already liked → no-op;
   guests get an on-device bookmark, as with the heart). A heart bursts over the
@@ -170,6 +171,10 @@ root URL to `/dashboard`); Explore stays at `/`.
   subtle shimmer; fades into the image over 200 ms.
 - Overlays (bottom-left, hidden when "show blog name" is off): blog avatar 20px
   + name. Top-right badges: `GIF`, `▶ 0:12` (video), `1/4` (photoset).
+- GIF tiles: up to 10 visible GIFs animate; any other GIF tile (beyond the 10, or on
+  cellular with autoplay off) shows a still — the post's poster frame when Tumblr sends
+  one, else the GIF paused on its first frame — with the `GIF` badge. A tile that starts
+  animating swaps to the animated GIF and restarts it from the beginning.
 - Tap → viewer. Long press → quick-action sheet (Open post, Open blog, Like,
   Share, Save, Copy link, Hide blog).
 - Safe-mode items render blurred (`expo-image` blurRadius 30) with a "Sensitive"
