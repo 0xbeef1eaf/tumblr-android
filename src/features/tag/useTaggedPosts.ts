@@ -1,7 +1,7 @@
 import { getTagged } from '@/api/endpoints/tagged';
 import type { Post } from '@/api/schemas/post';
 import { normalizePosts } from '@/domain/galleryItem';
-import { useGalleryPaging } from '@/features/gallery';
+import { useGalleryMinItems, useGalleryPaging } from '@/features/gallery';
 
 export const TAG_PAGE_SIZE = 20;
 
@@ -44,11 +44,13 @@ export function taggedQueryKey(tag: string) {
 
 /** Infinite gallery of posts for a tag (DESIGN §3.4, ARCHITECTURE §4). */
 export function useTaggedPosts(tag: string, enabled = true) {
+  const minItems = useGalleryMinItems();
   return useGalleryPaging<Post[]>({
     queryKey: taggedQueryKey(tag),
     fetchPage: (cursor, signal) => getTagged({ tag, before: cursor, limit: TAG_PAGE_SIZE, signal }),
     getItems: (page) => normalizePosts(page),
     getNextCursor: taggedNextCursor,
     enabled: enabled && tag.length > 0,
+    minItems,
   });
 }

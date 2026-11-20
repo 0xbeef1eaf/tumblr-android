@@ -1,7 +1,7 @@
 import { getBlogPosts } from '@/api/endpoints/blog';
 import type { BlogPostsResponse } from '@/api/schemas/blog';
 import { normalizePosts } from '@/domain/galleryItem';
-import { useGalleryPaging } from '@/features/gallery';
+import { useGalleryMinItems, useGalleryPaging } from '@/features/gallery';
 
 export const BLOG_PAGE_SIZE = 20;
 
@@ -37,6 +37,7 @@ export function blogPostsQueryKey(name: string, tag?: string) {
 
 /** Infinite gallery of a blog's posts, optionally filtered by `tag` (DESIGN §3.5). */
 export function useBlogPosts(name: string, tag?: string, enabled = true) {
+  const minItems = useGalleryMinItems();
   return useGalleryPaging<BlogPostsResponse>({
     queryKey: blogPostsQueryKey(name, tag),
     fetchPage: (cursor, signal) =>
@@ -44,5 +45,6 @@ export function useBlogPosts(name: string, tag?: string, enabled = true) {
     getItems: (page) => normalizePosts(page.posts),
     getNextCursor: blogNextCursor,
     enabled: enabled && name.length > 0,
+    minItems,
   });
 }

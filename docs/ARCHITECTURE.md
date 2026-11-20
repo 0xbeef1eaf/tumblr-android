@@ -118,13 +118,23 @@ Tumblr API ──fetch──▶ api/client (auth, retry, zod) ──▶ endpoint
 |---|---|---|---|
 | Tag | `GET /v2/tagged?tag=&limit=20&before=` | `before` = `timestamp` of last post (featured tags: `featured_timestamp`) | Legacy format only; `filter=text` to drop HTML |
 | Blog posts | `GET /v2/blog/{name}/posts?npf=true&limit=20&before=` (+`tag=`) | `before` = last post `timestamp` | Use `_links.next.query_params` when present |
-| Dashboard | `GET /v2/user/dashboard?npf=true&limit=20&offset=` | `offset` | `reblog_info=true` for trail attribution |
-| For You | `GET /v2/tabs/for_you?limit=20&cursor=` (undocumented) | opaque `cursor` from `_links.next.query_params.cursor`, else parsed from `href` | Elements filtered to `object_type: 'post'`; 403/404 → friendly "not offered" state |
+| Dashboard | `GET /v2/user/dashboard?npf=true&limit=20&offset=` | `offset` | `limit` caps at 20; `reblog_info=true` for trail attribution |
+| For You | `GET /v2/tabs/for_you?limit=40&cursor=` (undocumented) | opaque `cursor` from `_links.next.query_params.cursor`, else parsed from `href` | Elements filtered to `object_type: 'post'` (`elementCount` keeps the unfiltered count); a page of only non-post elements still pages on; 403/404 → friendly "not offered" state |
 | Likes | `GET /v2/user/likes?limit=20&before=` | `before` = `liked_timestamp` | `offset` max 1000, so prefer `before` |
 | Following | `GET /v2/user/following?limit=20&offset=` | `offset` | |
 
-Stop condition: page returned < limit or cursor unchanged. Dedupe by item id
-across pages (Tumblr pages can overlap).
+Stop condition: no next cursor (an empty page — For You: zero timeline *elements* — or no
+`_links.next`) or the cursor was already requested. Dedupe by item id across pages (Tumblr
+pages can overlap).
+
+Auto-advance (`useGalleryPaging`): text posts, non-post elements and duplicates make thin
+pages, and a list too short to scroll never fires `onEndReached` again. So the hook keeps
+fetching while `hasNextPage`, nothing is in flight, there is no error, and either the list
+holds fewer than `minItems` items (default 12; gallery screens pass `columns × 8` via
+`useGalleryMinItems()`) or the last page added fewer than `MIN_NEW_ITEMS` (6) new items.
+At most `MAX_AUTO_PAGES` (8) automatic fetches run in a row; a page adding ≥ 6 new items
+(or a refresh) resets the count. `hasNextPage` stays true after the cap, so a manual
+`onEndReached` (threshold 2 screens) still loads more.
 
 ## 5. Domain model
 
@@ -265,7 +275,8 @@ The secret is theirs, on their own device, so the direct exchange is fine in eve
 - Grid tile first paint ≤ 16 ms (no measurement; aspect ratio from data).
 - Images: `expo-image` `cachePolicy="memory-disk"`, `recyclingKey=item.id`,
   `transition={200}`, `placeholder={{ backgroundColor }}`; grid variants ≤ 640 px.
-- FlashList `estimatedItemSize` from median aspect; `drawDistance` 2 screens.
+- FlashList `estimatedItemSize` from median aspect; `drawDistance` 3 screens;
+  `onEndReachedThreshold` 2 (screens).
 - GIFs: at most 6 animating on screen; off-screen tiles get `autoplay={false}`. On
   cellular with "Autoplay GIFs on cellular" off, no tile animates (first frame + `GIF`
   badge); the viewer still plays the GIF on tap.

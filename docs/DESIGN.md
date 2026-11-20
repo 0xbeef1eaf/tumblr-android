@@ -202,7 +202,7 @@ root URL to `/dashboard`); Explore stays at `/`.
 | State | Treatment |
 |---|---|
 | Loading first page | Skeleton masonry (12 tiles, random aspect ratios) |
-| Loading next page | 3-tile skeleton row at the bottom |
+| Loading next page | 3-tile skeleton row at the bottom; thin pages (text posts, recommendations) load the next page automatically until the grid can scroll |
 | Pull to refresh | Spinner over the current first page; the feed restarts from a fresh page 1 (older pages are dropped and load again on scroll) |
 | Empty tag | Illustration + "Nothing tagged #x yet" + "Try: …" suggestions |
 | Blog not found (404) | "This blog doesn't exist or is private" |

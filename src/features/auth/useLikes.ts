@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { getLikes } from '@/api/endpoints/user';
 import { normalizePosts } from '@/domain/galleryItem';
-import { useGalleryPaging } from '@/features/gallery';
+import { useGalleryMinItems, useGalleryPaging } from '@/features/gallery';
 
 import { useAuthStore } from './authStore';
 import { useBookmarksStore } from './bookmarksStore';
@@ -17,6 +17,7 @@ const noop = () => undefined;
  */
 export function useLikes(): GalleryFeed {
   const signedIn = useAuthStore((s) => s.status === 'signedIn');
+  const minItems = useGalleryMinItems();
   const bookmarks = useBookmarksStore((s) => s.items);
   const remote = useGalleryPaging({
     queryKey: ['likes'],
@@ -27,6 +28,7 @@ export function useLikes(): GalleryFeed {
       return page.liked_posts.length === 0 || last === undefined ? undefined : last;
     },
     enabled: signedIn,
+    minItems,
   });
 
   const local = useMemo<GalleryFeed>(
