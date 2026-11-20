@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { isApiError } from '@/api/errors';
 import { MasonryGallery } from '@/features/gallery';
+import { useSetting } from '@/features/settings/settingsStore';
 import { MessageView } from '@/features/tag/MessageView';
 import { Text } from '@/ui/primitives';
 import { spacing, useTheme } from '@/ui/theme';
@@ -21,6 +22,7 @@ function ForYouGallery() {
   const feed = useForYou();
   const onLike = useToggleLike();
   const isLiked = useIsLiked();
+  const viewerBuffer = useSetting('forYouBuffer');
 
   if (isForYouUnavailable(feed.error)) {
     return (
@@ -58,6 +60,7 @@ function ForYouGallery() {
       isRefetching={feed.isRefetching}
       onLike={onLike}
       isLiked={isLiked}
+      viewerBuffer={viewerBuffer}
       emptyState={
         <View style={styles.center} testID="for-you-empty">
           <Text variant="heading" align="center">

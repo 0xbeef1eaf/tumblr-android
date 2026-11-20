@@ -1,6 +1,7 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { MasonryGallery } from '@/features/gallery';
+import { useSetting } from '@/features/settings/settingsStore';
 import { Text } from '@/ui/primitives';
 import { spacing, useTheme } from '@/ui/theme';
 
@@ -13,6 +14,7 @@ function DashboardGallery() {
   const feed = useDashboard();
   const onLike = useToggleLike();
   const isLiked = useIsLiked();
+  const viewerBuffer = useSetting('dashboardBuffer');
   return (
     <MasonryGallery
       items={feed.items}
@@ -24,6 +26,7 @@ function DashboardGallery() {
       isRefetching={feed.isRefetching}
       onLike={onLike}
       isLiked={isLiked}
+      viewerBuffer={viewerBuffer}
       emptyState={
         <View style={styles.empty} testID="dashboard-empty">
           <Text variant="heading" align="center">

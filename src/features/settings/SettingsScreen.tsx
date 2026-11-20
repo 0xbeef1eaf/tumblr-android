@@ -8,6 +8,7 @@ import { Text } from '@/ui/primitives';
 import { spacing, useTheme } from '@/ui/theme';
 
 import { ColumnsControl } from './ColumnsControl';
+import { FeedBufferSection } from './FeedBufferSection';
 import { ConfirmSheet } from './ConfirmSheet';
 import { SettingsRow, SettingsSwitchRow } from './SettingsRow';
 import { SettingsSection } from './SettingsSection';
@@ -164,6 +165,7 @@ export function SettingsScreen() {
         <TumblrApiSection />
         <AccountSection />
         <GridSection />
+        <FeedBufferSection />
         <ContentSection />
         <SettingsSection title="Storage" testID="section-storage">
           <SettingsRow

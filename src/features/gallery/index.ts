@@ -36,4 +36,10 @@ export {
   type UseGalleryPagingOptions,
 } from './useGalleryPaging';
 export { useViewerStore, type OpenViewerOptions, type ViewerState } from './viewerStore';
+export {
+  DEFAULT_VIEWER_BUFFER,
+  MAX_STALLED_FETCHES,
+  needsReadAhead,
+  useViewerReadAhead,
+} from './useViewerReadAhead';
 export type { GalleryItem } from '@/domain/galleryItem';

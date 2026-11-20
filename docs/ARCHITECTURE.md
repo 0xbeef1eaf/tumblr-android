@@ -298,6 +298,11 @@ The secret is theirs, on their own device, so the direct exchange is fine in eve
   `onlineManager`, so offline queries pause (no retry storm) and resume on reconnect,
   while persisted pages stay browsable.
 - Viewer prefetches ±1 page with `Image.prefetch`.
+- Viewer read-ahead (`useViewerReadAhead`, owned by the gallery that opened the viewer):
+  while fewer than `viewerBuffer` items are loaded past the current one, fetch the next
+  page; re-checked when the viewer moves, a page arrives or a fetch settles, so thin pages
+  are followed by another fetch. Stops after 5 fetches in a row that add nothing. The buffer
+  is a setting for Dashboard and For You (`dashboardBuffer`, `forYouBuffer`), 10 elsewhere.
 - Avoid re-renders: tiles memoised on `item.id` + `columnWidth` + `safeMode`.
 
 ## 9. Testing strategy

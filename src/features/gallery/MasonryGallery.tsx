@@ -26,6 +26,7 @@ import {
   type KindFilter,
 } from './layout';
 import { QuickActionsSheet } from './QuickActionsSheet';
+import { DEFAULT_VIEWER_BUFFER, useViewerReadAhead } from './useViewerReadAhead';
 import { GIF_VIEWABILITY, useVisibleGifs } from './useVisibleGifs';
 import { useViewerStore } from './viewerStore';
 
@@ -46,6 +47,8 @@ export interface MasonryGalleryProps {
   onLike?: (item: GalleryItem) => void;
   /** Like state for the sheet's Like row (optimistic/bookmark aware; see `useIsLiked`). */
   isLiked?: (item: GalleryItem) => boolean;
+  /** Items kept loaded ahead of the one shown in the full-screen viewer. */
+  viewerBuffer?: number;
   testID?: string;
 }
 
@@ -69,6 +72,7 @@ export function MasonryGallery({
   kindFilter = 'all',
   onLike,
   isLiked,
+  viewerBuffer = DEFAULT_VIEWER_BUFFER,
   testID = 'masonry-gallery',
 }: MasonryGalleryProps) {
   const { colors } = useTheme();
@@ -97,6 +101,16 @@ export function MasonryGallery({
   useEffect(() => {
     useViewerStore.getState().syncItems(source, filtered);
   }, [filtered, source]);
+
+  // While that viewer is open, keep `viewerBuffer` items loaded ahead of the current one.
+  useViewerReadAhead({
+    source,
+    itemCount: filtered.length,
+    buffer: viewerBuffer,
+    hasNextPage,
+    isFetchingNextPage,
+    loadMore,
+  });
 
   const openViewer = useCallback(
     (_item: GalleryItem, index: number) => {

@@ -7,6 +7,10 @@ import { layout } from '@/ui/theme';
 
 export type GridColumns = 2 | 3;
 
+/** Posts kept loaded ahead of the one shown in the full-screen viewer. */
+export const FEED_BUFFER_OPTIONS = [10, 20, 40, 80] as const;
+export type FeedBuffer = (typeof FEED_BUFFER_OPTIONS)[number];
+
 export interface Settings {
   columns: GridColumns;
   showBlogName: boolean;
@@ -14,6 +18,10 @@ export interface Settings {
   /** Off: gallery GIFs show their first frame on mobile data (`useVisibleGifs`). */
   autoplayGifsOnCellular: boolean;
   autoplayVideo: boolean;
+  /** Viewer read-ahead on the Dashboard tab (`useViewerReadAhead`). */
+  dashboardBuffer: FeedBuffer;
+  /** Viewer read-ahead on the For You tab; its pages are thinner, so the default is larger. */
+  forYouBuffer: FeedBuffer;
 }
 
 export interface SettingsState extends Settings {
@@ -22,6 +30,8 @@ export interface SettingsState extends Settings {
   setSafeMode: (value: boolean) => void;
   setAutoplayGifsOnCellular: (value: boolean) => void;
   setAutoplayVideo: (value: boolean) => void;
+  setDashboardBuffer: (value: FeedBuffer) => void;
+  setForYouBuffer: (value: FeedBuffer) => void;
   reset: () => void;
 }
 
@@ -39,6 +49,8 @@ export function defaultSettings(windowWidth = Dimensions.get('window').width): S
     safeMode: true,
     autoplayGifsOnCellular: true,
     autoplayVideo: false,
+    dashboardBuffer: 20,
+    forYouBuffer: 40,
   };
 }
 
@@ -49,6 +61,8 @@ function pickSettings(state: Settings): Settings {
     safeMode: state.safeMode,
     autoplayGifsOnCellular: state.autoplayGifsOnCellular,
     autoplayVideo: state.autoplayVideo,
+    dashboardBuffer: state.dashboardBuffer,
+    forYouBuffer: state.forYouBuffer,
   };
 }
 
@@ -61,6 +75,8 @@ export const useSettingsStore = create<SettingsState>()(
       setSafeMode: (safeMode) => set({ safeMode }),
       setAutoplayGifsOnCellular: (autoplayGifsOnCellular) => set({ autoplayGifsOnCellular }),
       setAutoplayVideo: (autoplayVideo) => set({ autoplayVideo }),
+      setDashboardBuffer: (dashboardBuffer) => set({ dashboardBuffer }),
+      setForYouBuffer: (forYouBuffer) => set({ forYouBuffer }),
       reset: () => set(defaultSettings()),
     }),
     {
