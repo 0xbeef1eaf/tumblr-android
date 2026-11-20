@@ -7,10 +7,10 @@ import { useSettingsStore } from '@/features/settings/settingsStore';
 import { setMockNetworkState, type NetworkPreset } from '@/test/network';
 
 import { GalleryTile } from './GalleryTile';
-import { makeItem } from './items.testutil';
+import { makeGif } from './items.testutil';
 import { gifAutoplayAllowed, useVisibleGifs } from './useVisibleGifs';
 
-const gif = makeItem({ id: 'g:0', kind: 'gif' });
+const gif = makeGif({ id: 'g:0' });
 
 function token(item: GalleryItem, index: number): ViewToken<GalleryItem> {
   return { item, key: item.id, index, isViewable: true, timestamp: 0 };

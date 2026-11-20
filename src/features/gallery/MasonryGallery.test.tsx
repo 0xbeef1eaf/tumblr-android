@@ -142,6 +142,8 @@ describe('MasonryGallery', () => {
     const { rerender } = await render(<MasonryGallery {...props({ onEndReached })} />);
     // Short content reaches the end straight away.
     expect(onEndReached).toHaveBeenCalled();
+    const list = screen.getByTestId('masonry-gallery-list');
+    expect(list.props.onEndReachedThreshold).toBe(2);
     onEndReached.mockClear();
     await rerender(<MasonryGallery {...props({ onEndReached, hasNextPage: false })} />);
     await act(async () => screen.getByTestId('masonry-gallery-list').props.onEndReached());

@@ -73,6 +73,8 @@ export function forYouCursor(links: Links | undefined): string | undefined {
 
 export interface ForYouPage {
   posts: Post[];
+  /** Timeline elements before filtering (posts plus carousels, ads…). */
+  elementCount: number;
   nextCursor?: string;
 }
 
@@ -85,16 +87,13 @@ export const ForYouResponseSchema = z
   .looseObject({
     timeline: z
       .looseObject({
-        elements: z
-          .array(z.unknown())
-          .catch([])
-          .transform((values) => values.filter(isPostElement))
-          .pipe(PostListSchema),
+        elements: z.array(z.unknown()).catch([]),
         _links: opt(LinksSchema),
       })
       .catch({ elements: [] }),
   })
   .transform(({ timeline }): ForYouPage => ({
-    posts: timeline.elements,
+    posts: PostListSchema.parse(timeline.elements.filter(isPostElement)),
+    elementCount: timeline.elements.length,
     nextCursor: forYouCursor(timeline._links),
   }));

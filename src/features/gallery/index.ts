@@ -3,6 +3,7 @@ export { GallerySkeleton, type GallerySkeletonProps } from './GallerySkeleton';
 export {
   columnWidthDp,
   columnWidthPx,
+  displayVariants,
   filterByKind,
   formatDuration,
   gridVariant,
@@ -23,7 +24,11 @@ export {
 export { useIsRevealed, useRevealStore } from './revealStore';
 export {
   flattenGalleryPages,
+  lastPageNewItems,
+  MAX_AUTO_PAGES,
+  MIN_NEW_ITEMS,
   nextGalleryCursor,
+  useGalleryMinItems,
   useGalleryPaging,
   type Cursor,
   type GalleryPage,

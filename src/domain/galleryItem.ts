@@ -6,11 +6,13 @@ import { createLogger } from '@/lib/log';
 import {
   aspectOf,
   detectKind,
+  isGifVariant,
   parsePlaceholderColor,
   sortVariants,
   type MediaKind,
   type MediaVariant,
 } from './media';
+import { gifMedia, toVariants } from './npfMedia';
 import { htmlToPlain, npfTextToPlain, truncate } from './text';
 
 export type { MediaKind, MediaVariant } from './media';
@@ -28,8 +30,10 @@ export interface GalleryItem {
   /** Unix seconds. */
   timestamp: number;
   kind: MediaKind;
-  /** Sorted widest → narrowest; for video this is the poster. */
+  /** Sorted widest → narrowest; for video this is the poster; for GIFs only animated GIFs. */
   variants: MediaVariant[];
+  /** GIFs: a still frame (NPF `poster`) near grid width, shown while the tile may not animate. */
+  posterUrl?: string;
   /** Native tumblr video only. */
   videoUrl?: string;
   /** Third-party embeds (YouTube…): the watch URL; rendered as a poster image item. */
@@ -54,6 +58,7 @@ type MediaDraft = Pick<
   GalleryItem,
   | 'kind'
   | 'variants'
+  | 'posterUrl'
   | 'videoUrl'
   | 'embedUrl'
   | 'provider'
@@ -64,12 +69,6 @@ type MediaDraft = Pick<
 >;
 
 const SUMMARY_MAX = 280;
-
-function toVariants(media: readonly NpfMedia[]): MediaVariant[] {
-  return media
-    .filter((m) => m.cropped !== true)
-    .map((m) => ({ url: m.url, width: m.width ?? 0, height: m.height ?? 0, type: m.type }));
-}
 
 function originalAspect(media: readonly NpfMedia[], fallback: MediaVariant[]): number {
   const original = media.find((m) => m.has_original_dimensions) ?? fallback[0];
@@ -86,11 +85,12 @@ function draftFromNpfBlock(block: NpfBlock): MediaDraft | undefined {
   if (image) {
     const raw = toVariants(image.media);
     const aspectRatio = originalAspect(image.media, sortVariants(raw));
-    const variants = sortVariants(raw, aspectRatio);
-    if (variants.length === 0) return undefined;
+    const sorted = sortVariants(raw, aspectRatio);
+    if (sorted.length === 0) return undefined;
+    const kind = detectKind(sorted);
     return {
-      kind: detectKind(variants),
-      variants,
+      kind,
+      ...(kind === 'gif' ? gifMedia(image, sorted, aspectRatio) : { variants: sorted }),
       aspectRatio,
       altText: nonEmpty(image.alt_text),
       placeholderColor: parsePlaceholderColor(image.colors?.c0),
@@ -143,8 +143,14 @@ function legacyPhotoDrafts(post: LegacyPhotoPost): MediaDraft[] {
       aspectRatio,
     );
     if (variants.length === 0) return [];
+    const kind = detectKind(variants);
     return [
-      { kind: detectKind(variants), variants, aspectRatio, altText: nonEmpty(photo.caption) },
+      {
+        kind,
+        variants: kind === 'gif' ? variants.filter(isGifVariant) : variants,
+        aspectRatio,
+        altText: nonEmpty(photo.caption),
+      },
     ];
   });
 }

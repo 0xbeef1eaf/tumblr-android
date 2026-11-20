@@ -106,6 +106,11 @@ Tumblr API ──fetch──▶ api/client (auth, retry, zod) ──▶ endpoint
   with `maxAge` 24 h (gallery pages only; never auth).
 - Mutations are optimistic (like toggles instantly, rolls back on error) and
   invalidate `['likes']`.
+- Pull-to-refresh calls `useGalleryPaging().refresh()`: it trims the cached infinite data
+  to its first page (`setQueryData` → `pages`/`pageParams` sliced to 1) and refetches, so
+  only page 1 is requested, the old first-page items stay visible under the spinner
+  (`isRefetching`), and the list re-grows from fresh content. `refetch()` (every loaded
+  page, in order) is kept for the error-state Retry buttons.
 
 ## 4. Pagination strategy per source
 
@@ -113,13 +118,23 @@ Tumblr API ──fetch──▶ api/client (auth, retry, zod) ──▶ endpoint
 |---|---|---|---|
 | Tag | `GET /v2/tagged?tag=&limit=20&before=` | `before` = `timestamp` of last post (featured tags: `featured_timestamp`) | Legacy format only; `filter=text` to drop HTML |
 | Blog posts | `GET /v2/blog/{name}/posts?npf=true&limit=20&before=` (+`tag=`) | `before` = last post `timestamp` | Use `_links.next.query_params` when present |
-| Dashboard | `GET /v2/user/dashboard?npf=true&limit=20&offset=` | `offset` | `reblog_info=true` for trail attribution |
-| For You | `GET /v2/tabs/for_you?limit=20&cursor=` (undocumented) | opaque `cursor` from `_links.next.query_params.cursor`, else parsed from `href` | Elements filtered to `object_type: 'post'`; 403/404 → friendly "not offered" state |
+| Dashboard | `GET /v2/user/dashboard?npf=true&limit=20&offset=` | `offset` | `limit` caps at 20; `reblog_info=true` for trail attribution |
+| For You | `GET /v2/tabs/for_you?limit=40&cursor=` (undocumented) | opaque `cursor` from `_links.next.query_params.cursor`, else parsed from `href` | Elements filtered to `object_type: 'post'` (`elementCount` keeps the unfiltered count); a page of only non-post elements still pages on; 403/404 → friendly "not offered" state |
 | Likes | `GET /v2/user/likes?limit=20&before=` | `before` = `liked_timestamp` | `offset` max 1000, so prefer `before` |
 | Following | `GET /v2/user/following?limit=20&offset=` | `offset` | |
 
-Stop condition: page returned < limit or cursor unchanged. Dedupe by item id
-across pages (Tumblr pages can overlap).
+Stop condition: no next cursor (an empty page — For You: zero timeline *elements* — or no
+`_links.next`) or the cursor was already requested. Dedupe by item id across pages (Tumblr
+pages can overlap).
+
+Auto-advance (`useGalleryPaging`): text posts, non-post elements and duplicates make thin
+pages, and a list too short to scroll never fires `onEndReached` again. So the hook keeps
+fetching while `hasNextPage`, nothing is in flight, there is no error, and either the list
+holds fewer than `minItems` items (default 12; gallery screens pass `columns × 8` via
+`useGalleryMinItems()`) or the last page added fewer than `MIN_NEW_ITEMS` (6) new items.
+At most `MAX_AUTO_PAGES` (8) automatic fetches run in a row; a page adding ≥ 6 new items
+(or a refresh) resets the count. `hasNextPage` stays true after the cap, so a manual
+`onEndReached` (threshold 2 screens) still loads more.
 
 ## 5. Domain model
 
@@ -136,7 +151,9 @@ interface GalleryItem {
   postUrl: string;
   timestamp: number;        // unix seconds
   kind: MediaKind;
-  variants: MediaVariant[]; // sorted widest → narrowest; for video this is the poster
+  variants: MediaVariant[]; // sorted widest → narrowest; for video this is the poster;
+                            // for GIFs animated `.gif` entries only
+  posterUrl?: string;       // GIFs: still frame (NPF `poster`) near grid width
   videoUrl?: string;        // native tumblr video only; embeds fall back to postUrl
   durationMs?: number;
   aspectRatio: number;      // width/height of the original, unclamped
@@ -156,7 +173,10 @@ interface GalleryItem {
   `trail[i].content`** (reblogs of photosets have media only in the trail);
   emit an item per `image` block and per `video` block with `provider === 'tumblr'`
   (other providers emit an image item from `poster` with `videoUrl` undefined).
-  GIF detection: any variant `type === 'image/gif'` or url ends in `.gif`.
+  GIF detection: any variant `type === 'image/gif'` or url ends in `.gif`. A GIF item's
+  `variants` keep only those animated entries; still frames (block-level `poster`, a
+  media entry's own `poster`, non-GIF media) become `posterUrl` (the narrowest ≥ 540 px,
+  else the widest).
 - Legacy `photo` posts: `photos[]` → each has `original_size` + `alt_sizes`;
   GIF by extension. Legacy `video` with `video_url`: one item, poster from
   `thumbnail_url`. Other legacy types: no items.
@@ -168,7 +188,9 @@ interface GalleryItem {
 Return the narrowest variant whose `width >= targetWidthPx`; if none, the widest.
 Grid target = `columnWidthDp * PixelRatio.get()`; viewer target = screen width px.
 Tumblr serves 75/100/250/400/500/540/640/1280/2048 widths; GIFs should prefer
-≤ 540 in the grid for bandwidth.
+≤ 540 in the grid for bandwidth: a GIF tile picks among `.gif` variants only
+(`displayVariants`), the narrowest ≥ the column among those ≤ 540 px, else the largest
+of them — never a still.
 
 ## 6. Networking details
 
@@ -260,10 +282,16 @@ The secret is theirs, on their own device, so the direct exchange is fine in eve
 - Grid tile first paint ≤ 16 ms (no measurement; aspect ratio from data).
 - Images: `expo-image` `cachePolicy="memory-disk"`, `recyclingKey=item.id`,
   `transition={200}`, `placeholder={{ backgroundColor }}`; grid variants ≤ 640 px.
-- FlashList `estimatedItemSize` from median aspect; `drawDistance` 2 screens.
-- GIFs: at most 6 animating on screen; off-screen tiles get `autoplay={false}`. On
-  cellular with "Autoplay GIFs on cellular" off, no tile animates (first frame + `GIF`
-  badge); the viewer still plays the GIF on tap.
+- FlashList `estimatedItemSize` from median aspect; `drawDistance` 3 screens;
+  `onEndReachedThreshold` 2 (screens).
+- GIFs: at most 10 animating on screen (`MAX_ANIMATING_GIFS`). expo-image on Android does
+  not reliably restart an animation when `autoplay` flips false → true on a recycled
+  view, so a GIF tile that may not animate renders a still (`posterUrl`, else the GIF
+  with `autoplay={false}`), and one that may renders the animated GIF with `autoplay` and
+  an `Image` `key` that includes the play state, so it remounts and starts. On cellular
+  with "Autoplay GIFs on cellular" off, no tile animates (still + `GIF` badge); the viewer
+  still plays the GIF. Viewer GIF pages use `autoplay && active` and key the `Image` by
+  `active`, so swiping back to a GIF restarts it.
 - Network state: one app-lifetime `expo-network` listener (`src/lib/network.ts`) shared by
   every `useNetworkState()` via `useSyncExternalStore`; only changes to
   `isConnected`/`isCellular` re-render. The root layout feeds it to react-query's

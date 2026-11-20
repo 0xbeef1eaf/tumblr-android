@@ -51,7 +51,7 @@ function Results({ tag }: { tag: string }) {
           isFetchingNextPage={paging.isFetchingNextPage}
           hasNextPage={paging.hasNextPage}
           onEndReached={() => void paging.fetchNextPage()}
-          onRefresh={() => void paging.refetch()}
+          onRefresh={() => void paging.refresh()}
           isRefetching={paging.isRefetching}
           kindFilter={kind}
           onLike={onLike}

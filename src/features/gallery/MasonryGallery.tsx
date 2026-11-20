@@ -50,6 +50,10 @@ export interface MasonryGalleryProps {
 }
 
 const half = layout.gutter / 2;
+/** Render this many screens ahead (ARCHITECTURE §8). */
+export const DRAW_DISTANCE_SCREENS = 3;
+/** Ask for the next page two screens before the end (fast flings outrun one screen). */
+export const END_REACHED_THRESHOLD = 2;
 
 /** Masonry gallery over FlashList (DESIGN §4/§7, ARCHITECTURE §8). Tap opens `/viewer`. */
 export function MasonryGallery({
@@ -156,10 +160,10 @@ export function MasonryGallery({
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         extraData={animating}
-        drawDistance={height * 2}
+        drawDistance={height * DRAW_DISTANCE_SCREENS}
         contentContainerStyle={styles.content}
         onEndReached={handleEndReached}
-        onEndReachedThreshold={1}
+        onEndReachedThreshold={END_REACHED_THRESHOLD}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={GIF_VIEWABILITY}
         refreshControl={refreshControl}

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
 import type { GalleryItem } from '@/domain/galleryItem';
-import { useGalleryPaging } from '@/features/gallery/useGalleryPaging';
+import { useGalleryMinItems, useGalleryPaging } from '@/features/gallery/useGalleryPaging';
 
 interface MasonryGalleryStubProps {
   items: GalleryItem[];
@@ -33,4 +33,9 @@ function MasonryGallery({
 }
 
 /** Use as `jest.mock('@/features/gallery', () => require('@/features/tag/galleryMock.testutil').galleryMock)`. */
-export const galleryMock = { __esModule: true, MasonryGallery, useGalleryPaging };
+export const galleryMock = {
+  __esModule: true,
+  MasonryGallery,
+  useGalleryMinItems,
+  useGalleryPaging,
+};

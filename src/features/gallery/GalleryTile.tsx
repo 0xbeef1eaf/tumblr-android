@@ -20,7 +20,7 @@ export interface GalleryTileProps {
   columnWidthPx: number;
   showBlogName: boolean;
   safeMode: boolean;
-  /** Decided by the parent: only a few visible GIFs animate at once. */
+  /** Decided by the parent: only a few visible GIFs animate at once; others show a still. */
   animateGifs: boolean;
   onPress: (item: GalleryItem, index: number) => void;
   onLongPress?: (item: GalleryItem, index: number) => void;
@@ -46,6 +46,13 @@ function GalleryTileImpl({
   const hidden = safeMode && item.isSensitive && !revealed;
 
   const variant = gridVariant(item, columnWidthPx);
+  const isGif = item.kind === 'gif';
+  const playing = isGif && animateGifs;
+  // A GIF that may not animate shows a still: its poster when known, else the GIF paused.
+  const poster = isGif && !playing ? item.posterUrl : undefined;
+  const source = poster
+    ? { uri: poster }
+    : variant && { uri: variant.url, width: variant.width, height: variant.height };
   const badges = tileBadges(item);
   const label = tileAccessibilityLabel(item);
 
@@ -73,14 +80,17 @@ function GalleryTileImpl({
         },
       ]}
     >
-      {variant ? (
+      {source ? (
         <Image
-          source={{ uri: variant.url, width: variant.width, height: variant.height }}
+          // expo-image on Android does not reliably restart an animation when `autoplay`
+          // flips on in a recycled view: remount when the GIF starts or stops playing.
+          key={isGif ? `${item.id}:${playing ? 'play' : 'still'}` : item.id}
+          source={source}
           recyclingKey={item.id}
           cachePolicy="memory-disk"
           contentFit="cover"
           transition={reducedMotion ? 0 : motion.normal}
-          autoplay={item.kind === 'gif' ? animateGifs : false}
+          autoplay={playing}
           blurRadius={hidden ? SAFE_BLUR_RADIUS : undefined}
           style={StyleSheet.absoluteFill}
           accessible={false}

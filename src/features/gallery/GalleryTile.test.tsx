@@ -52,7 +52,13 @@ describe('GalleryTile', () => {
   });
 
   it('shows GIF, video and photoset badges', async () => {
-    const gif = makeItem({ id: 'g:1', kind: 'gif', indexInPost: 1, countInPost: 3 });
+    const gif = makeItem({
+      id: 'g:1',
+      kind: 'gif',
+      indexInPost: 1,
+      countInPost: 3,
+      variants: [{ url: 'https://64.media.tumblr.com/g/s400x400/a.gif', width: 400, height: 400 }],
+    });
     const { rerender } = await render(<GalleryTile {...props({ item: gif, animateGifs: true })} />);
     expect(screen.getByText('GIF')).toBeTruthy();
     expect(screen.getByText('2/3')).toBeTruthy();
@@ -61,6 +67,44 @@ describe('GalleryTile', () => {
     const video = makeItem({ id: 'v:0', kind: 'video', durationMs: 12_000 });
     await rerender(<GalleryTile {...props({ item: video })} />);
     expect(screen.getByText('▶ 0:12')).toBeTruthy();
+  });
+
+  it('shows the poster still for a GIF that may not animate, the GIF when it may', async () => {
+    const gifItem = makeItem({
+      id: 'g:0',
+      kind: 'gif',
+      posterUrl: 'https://64.media.tumblr.com/g/s540x540/still.jpg',
+      variants: [
+        { url: 'https://64.media.tumblr.com/g/s540x540/a.gif', width: 540, height: 540 },
+        { url: 'https://64.media.tumblr.com/g/s250x250/a.gif', width: 250, height: 250 },
+      ],
+    });
+    const { rerender } = await render(<GalleryTile {...props({ item: gifItem })} />);
+    const still = screen.getByTestId('tile-image-g:0');
+    expect(still.props.source.uri).toBe(gifItem.posterUrl);
+    expect(still.props.autoplay).toBe(false);
+
+    await rerender(<GalleryTile {...props({ item: gifItem, animateGifs: true })} />);
+    const playing = screen.getByTestId('tile-image-g:0');
+    expect(playing.props.source.uri).toBe('https://64.media.tumblr.com/g/s540x540/a.gif');
+    expect(playing.props.autoplay).toBe(true);
+    // A new key remounts the native view so the animation starts.
+    expect(playing).not.toBe(still);
+
+    // Without a poster the paused GIF itself is the still.
+    const noPoster = { ...gifItem, posterUrl: undefined };
+    await rerender(<GalleryTile {...props({ item: noPoster })} />);
+    expect(screen.getByTestId('tile-image-g:0').props).toMatchObject({
+      source: { uri: 'https://64.media.tumblr.com/g/s540x540/a.gif' },
+      autoplay: false,
+    });
+  });
+
+  it('keeps the same image view for a non-GIF across re-renders', async () => {
+    const { rerender } = await render(<GalleryTile {...props()} />);
+    const before = screen.getByTestId('tile-image-1:0');
+    await rerender(<GalleryTile {...props({ animateGifs: true })} />);
+    expect(screen.getByTestId('tile-image-1:0')).toBe(before);
   });
 
   it('shows the blog overlay only when enabled', async () => {

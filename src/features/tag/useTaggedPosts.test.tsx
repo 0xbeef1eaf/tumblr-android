@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { renderHook, waitFor } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
 import type { ReactNode } from 'react';
 
@@ -83,14 +83,10 @@ describe('useTaggedPosts', () => {
     expect(requests[0]?.searchParams.get('limit')).toBe('20');
     expect(requests[0]?.searchParams.has('before')).toBe(false);
     expect(result.current.items.every((i) => i.kind !== undefined)).toBe(true);
-    expect(result.current.hasNextPage).toBe(true);
 
-    const before = result.current.items.length;
-    await act(async () => {
-      await result.current.fetchNextPage();
-    });
+    // Page 1 is too short to fill the grid, so page 2 loads automatically.
+    await waitFor(() => expect(result.current.items.some((i) => i.postId === 'older')).toBe(true));
     expect(requests[1]?.searchParams.get('before')).toBe('1761903000');
-    await waitFor(() => expect(result.current.items.length).toBeGreaterThan(before));
     expect(client.getQueryState(['tagged', 'photography'])).toBeDefined();
   });
 

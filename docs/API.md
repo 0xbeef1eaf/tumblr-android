@@ -21,8 +21,8 @@ Source: https://github.com/tumblr/docs (api.md, npf-spec.md), checked 2026-10-31
 | Blog posts | `GET /v2/blog/{name}/posts?npf=true&limit=20&before=&tag=&reblog_info=true` | API key |
 | Single post | `GET /v2/blog/{name}/posts/{id}?post_format=npf` | OAuth (guest fallback: `/posts?id=`) |
 | User | `GET /v2/user/info` | OAuth |
-| Dashboard | `GET /v2/user/dashboard?npf=true&limit=20&offset=&reblog_info=true` | OAuth |
-| For You | `GET /v2/tabs/for_you?limit=20&cursor=` → `{ timeline: { elements: Post[], _links.next } }` — **undocumented, used by official clients; may stop working** (403/404 → "not offered to third-party apps" state) | OAuth |
+| Dashboard | `GET /v2/user/dashboard?npf=true&limit=20&offset=&reblog_info=true` (`limit` max 20) | OAuth |
+| For You | `GET /v2/tabs/for_you?limit=40&cursor=` → `{ timeline: { elements: Post[], _links.next } }` — **undocumented, used by official clients; may stop working** (403/404 → "not offered to third-party apps" state) | OAuth |
 | Likes | `GET /v2/user/likes?limit=20&before=` → `liked_posts`, `liked_count` | OAuth |
 | Following | `GET /v2/user/following?limit=20&offset=` → `blogs`, `total_blogs` | OAuth |
 | Like / unlike | `POST /v2/user/like` / `unlike` body `{id, reblog_key}` | OAuth |

@@ -1,11 +1,13 @@
-import { makeItem } from './items.testutil';
+import { makeGif, makeItem } from './items.testutil';
 import {
   columnWidthDp,
   columnWidthPx,
+  displayVariants,
   distributeColumns,
   filterByKind,
   formatDuration,
   gridVariant,
+  MAX_ANIMATING_GIFS,
   pickAnimatingGifs,
   skeletonAspects,
   tileAccessibilityLabel,
@@ -80,14 +82,35 @@ describe('gallery layout', () => {
     expect(cols.map((c) => c.length)).toEqual([2, 2, 2]);
   });
 
-  it('lets at most 6 visible GIFs animate', () => {
+  it(`lets at most ${MAX_ANIMATING_GIFS} visible GIFs animate`, () => {
+    expect(MAX_ANIMATING_GIFS).toBe(10);
     const visible = [
       makeItem({ id: 'i:0' }),
-      ...Array.from({ length: 8 }, (_, i) => makeItem({ id: `g${i}:0`, kind: 'gif' })),
+      ...Array.from({ length: 12 }, (_, i) => makeItem({ id: `g${i}:0`, kind: 'gif' })),
     ];
     const ids = pickAnimatingGifs(visible);
-    expect(ids.size).toBe(6);
+    expect(ids.size).toBe(10);
     expect(ids.has('i:0')).toBe(false);
-    expect(ids.has('g6:0')).toBe(false);
+    expect(ids.has('g9:0')).toBe(true);
+    expect(ids.has('g10:0')).toBe(false);
+  });
+
+  it('never picks a still for a GIF tile and prefers the largest .gif ≤ 540 px', () => {
+    const gif = makeGif({ id: 'g:0' });
+    const withStill = {
+      ...gif,
+      variants: [
+        { url: 'https://x/still-500.jpg', width: 500, height: 500, type: 'image/jpeg' },
+        ...gif.variants,
+      ],
+    };
+    expect(gridVariant(withStill, 480)?.url).toBe(gif.variants[1]?.url);
+    expect(gridVariant(withStill, 2000)?.width).toBe(540);
+    expect(gridVariant(withStill, 300)?.width).toBe(400);
+    expect(displayVariants(withStill).every((v) => v.url.endsWith('.gif'))).toBe(true);
+    // Only stills: nothing to show rather than a wrong frame (the tile uses posterUrl).
+    expect(gridVariant({ kind: 'gif', variants: withStill.variants.slice(0, 1) }, 300)).toBe(
+      undefined,
+    );
   });
 });

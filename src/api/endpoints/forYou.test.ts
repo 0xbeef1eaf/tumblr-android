@@ -38,16 +38,43 @@ describe('getForYou (undocumented /v2/tabs/for_you)', () => {
     expect(seen[0]).toEqual({ auth: 'Bearer token', query: { cursor: 'abc', limit: '10' } });
     // The fixture has 4 posts and one `object_type: 'title'` element.
     expect(page.posts).toHaveLength(4);
+    expect(page.elementCount).toBe(5);
     expect(page.nextCursor).toBe('Zm9yX3lvdTpwYWdlOjI=');
   });
 
   it('tolerates a missing timeline and non-array elements', async () => {
     server.use(http.get(`${API}/v2/tabs/for_you`, () => ok({ something: 'else' })));
-    await expect(getForYou()).resolves.toEqual({ posts: [], nextCursor: undefined });
+    await expect(getForYou()).resolves.toEqual({
+      posts: [],
+      elementCount: 0,
+      nextCursor: undefined,
+    });
     server.use(
       http.get(`${API}/v2/tabs/for_you`, () => ok({ timeline: { elements: null, _links: 3 } })),
     );
-    await expect(getForYou()).resolves.toEqual({ posts: [], nextCursor: undefined });
+    await expect(getForYou()).resolves.toEqual({
+      posts: [],
+      elementCount: 0,
+      nextCursor: undefined,
+    });
+  });
+
+  it('counts non-post elements so a post-less page can still page on', async () => {
+    server.use(
+      http.get(`${API}/v2/tabs/for_you`, () =>
+        ok({
+          timeline: {
+            elements: [{ object_type: 'blog_carousel' }, { object_type: 'ad' }],
+            _links: { next: { href: '/v2/tabs/for_you?cursor=next2' } },
+          },
+        }),
+      ),
+    );
+    await expect(getForYou()).resolves.toEqual({
+      posts: [],
+      elementCount: 2,
+      nextCursor: 'next2',
+    });
   });
 
   it('surfaces 403 as ApiError and 404 as NotFoundError', async () => {

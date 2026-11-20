@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { makeItem, makeItems } from '@/features/gallery/items.testutil';
+import { makeGif, makeItem, makeItems } from '@/features/gallery/items.testutil';
 import { useRevealStore } from '@/features/gallery/revealStore';
 import { useViewerStore } from '@/features/gallery/viewerStore';
 import { useSettingsStore } from '@/features/settings/settingsStore';
@@ -85,6 +85,19 @@ describe('ViewerScreen', () => {
     expect(onLoadMore).not.toHaveBeenCalled();
     await selectPage(3);
     expect(onLoadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it('plays the active GIF page from an animated variant, never the poster', async () => {
+    const gif = makeGif({ id: 'g:0', posterUrl: 'https://x/still.jpg' });
+    useViewerStore.getState().open([makeItem({ id: 'i:0' }), gif], 0);
+    await render(<ViewerScreen />);
+    expect(screen.getByTestId('viewer-image-g:0-img').props.autoplay).toBe(false);
+
+    await selectPage(1);
+    const img = screen.getByTestId('viewer-image-g:0-img');
+    expect(img.props.autoplay).toBe(true);
+    expect(img.props.source.uri).toMatch(/\.gif$/);
+    expect(img.props.placeholder?.uri ?? '').not.toContain('still');
   });
 
   it('dismisses on a long swipe down and springs back on a short one', async () => {

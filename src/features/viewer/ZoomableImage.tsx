@@ -33,7 +33,7 @@ export interface ZoomableImageProps {
   size: Size;
   /** The page is the current one; zoom resets when it stops being current. */
   active: boolean;
-  /** GIFs animate in the viewer. */
+  /** GIFs animate in the viewer, on the active page only. */
   autoplay?: boolean;
   blurRadius?: number;
   accessibilityLabel: string;
@@ -183,6 +183,9 @@ function ZoomableImageImpl({
     <GestureDetector gesture={gesture}>
       <Animated.View style={[styles.fill, animatedStyle]} testID={testID}>
         <Image
+          // expo-image on Android does not reliably restart a GIF when `autoplay` flips back
+          // on: remount it whenever the page (de)activates so swiping back plays it again.
+          key={autoplay ? `gif-${active ? 'active' : 'idle'}` : 'still'}
           source={{ uri }}
           placeholder={placeholderUri ? { uri: placeholderUri } : undefined}
           placeholderContentFit="contain"

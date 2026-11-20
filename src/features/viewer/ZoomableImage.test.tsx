@@ -71,6 +71,42 @@ describe('ZoomableImage', () => {
   });
 });
 
+describe('ZoomableImage GIF playback', () => {
+  const size = { width: 400, height: 800 };
+  const page = (active: boolean, autoplay: boolean) => (
+    <ZoomableImage
+      uri="https://x/full.gif"
+      aspectRatio={1}
+      size={size}
+      active={active}
+      autoplay={autoplay}
+      accessibilityLabel="GIF"
+    />
+  );
+
+  it('plays only on the active page and remounts so swiping back restarts it', async () => {
+    const { rerender } = await render(page(false, true));
+    const idle = screen.getByTestId('zoomable-image-img');
+    expect(idle.props.autoplay).toBe(false);
+
+    await rerender(page(true, true));
+    const playing = screen.getByTestId('zoomable-image-img');
+    expect(playing.props.autoplay).toBe(true);
+    expect(playing).not.toBe(idle);
+
+    await rerender(page(false, true));
+    await rerender(page(true, true));
+    expect(screen.getByTestId('zoomable-image-img')).not.toBe(playing);
+  });
+
+  it('keeps a still image mounted across activation', async () => {
+    const { rerender } = await render(page(false, false));
+    const before = screen.getByTestId('zoomable-image-img');
+    await rerender(page(true, false));
+    expect(screen.getByTestId('zoomable-image-img')).toBe(before);
+  });
+});
+
 describe('HeartBurst', () => {
   afterEach(() => jest.useRealTimers());
 

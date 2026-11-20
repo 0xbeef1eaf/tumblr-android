@@ -4,7 +4,12 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 
 import type { GalleryItem } from '@/domain/galleryItem';
 import { pickVariant } from '@/domain/media';
-import { gridVariant, SAFE_BLUR_RADIUS, tileAccessibilityLabel } from '@/features/gallery';
+import {
+  displayVariants,
+  gridVariant,
+  SAFE_BLUR_RADIUS,
+  tileAccessibilityLabel,
+} from '@/features/gallery';
 import { useIsRevealed, useRevealStore } from '@/features/gallery/revealStore';
 import { Pressable, Text } from '@/ui/primitives';
 import { spacing } from '@/ui/theme';
@@ -29,9 +34,12 @@ export interface ViewerPageProps {
   onDoubleTap?: (item: GalleryItem) => void;
 }
 
-/** Full-resolution variant for the viewer (ARCHITECTURE §5.3: target = screen width px). */
-export function viewerVariant(item: Pick<GalleryItem, 'variants'>, screenWidthPx: number) {
-  return pickVariant(item.variants, screenWidthPx);
+/**
+ * Full-resolution variant for the viewer (ARCHITECTURE §5.3: target = screen width px).
+ * GIF pages only ever get an animated variant, never the tile's poster still.
+ */
+export function viewerVariant(item: Pick<GalleryItem, 'kind' | 'variants'>, screenWidthPx: number) {
+  return pickVariant(displayVariants(item), screenWidthPx);
 }
 
 /**
