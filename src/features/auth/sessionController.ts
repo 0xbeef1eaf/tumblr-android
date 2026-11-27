@@ -32,6 +32,8 @@ export const USER_SCOPED_QUERY_ROOTS = [
   'likes',
   'user',
   'following',
+  'suggestedBlogs',
+  'notifications',
 ] as const;
 
 /**

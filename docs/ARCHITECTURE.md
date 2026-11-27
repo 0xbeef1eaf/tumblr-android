@@ -29,9 +29,11 @@ app/                         expo-router routes (thin: compose feature screens)
   (tabs)/_layout.tsx         tab bar; hides Dashboard when signed out
   (tabs)/index.tsx           Explore
   (tabs)/dashboard.tsx
-  (tabs)/search.tsx
+  (tabs)/for-you.tsx
+  (tabs)/notifications.tsx
   (tabs)/likes.tsx
   (tabs)/settings.tsx
+  search.tsx                 stack screen at /search (no longer a tab), pushed from Explore
   tag/[tag].tsx
   blog/[name].tsx
   post/[blog]/[id].tsx
@@ -60,7 +62,8 @@ src/
     auth/                    useSession, SignInButton, authStore, oauth (authorize), oauthFlowStore, SignInScreen/SignInWebView
     credentials/             useCredentialsStore, useCredentialsBootstrap, useApiKeyStatus, ConnectAppCard
     settings/                settingsStore, SettingsScreen, TumblrApiSection, CredentialsSheet
-    explore/                 StarterTags, RecentChips, FollowingRow
+    explore/                 StarterTags, RecentChips, FollowingRow, SuggestedBlogs, useSuggestedBlogs, suggestions (ranking)
+    notifications/           NotificationsScreen, NotificationRow, useNotifications, notificationText
   ui/
     theme.ts                 tokens; useTheme(); light/dark
     OfflineBanner.tsx        DESIGN §7 offline banner (root layout, above the Stack)
@@ -99,9 +102,16 @@ Tumblr API ──fetch──▶ api/client (auth, retry, zod) ──▶ endpoint
 ```
 
 - Query keys: `['tagged', tag]`, `['blog', name, 'posts', {tag}]`, `['blog', name, 'info']`,
-  `['dashboard']`, `['forYou']`, `['likes']`, `['user']`, `['following']`, `['post', blog, id]`.
+  `['dashboard']`, `['forYou']`, `['likes']`, `['user']`, `['following']`, `['post', blog, id]`,
+  `['blog', name, 'following']`, `['suggestedBlogs', user, 'sources' | 'exclude', …]`,
+  `['notifications', blog, filter]`.
   Persisted roots: `tagged`, `blog`, `dashboard`, `forYou`, `likes`; dropped on sign-out:
-  `dashboard`, `forYou`, `likes`, `user`, `following`.
+  `dashboard`, `forYou`, `likes`, `user`, `following`, `suggestedBlogs`, `notifications`
+  (`notifications` is never persisted, `staleTime` 1 min). `['blog', name, 'following']` is
+  persisted under the `blog` root (`staleTime` 6 h) and, like every `blog` query, is dropped
+  or reset on sign-in and sign-out (viewer-dependent roots). `suggestedBlogs` is memory only
+  (`staleTime` 1 h), keyed by the signed-in user, and dropped on sign-out and on a
+  credential change.
 - `staleTime` 5 min for galleries, 1 h for blog info/avatars; cache persisted to MMKV
   with `maxAge` 24 h (gallery pages only; never auth).
 - Mutations are optimistic (like toggles instantly, rolls back on error) and
@@ -122,6 +132,7 @@ Tumblr API ──fetch──▶ api/client (auth, retry, zod) ──▶ endpoint
 | For You | `GET /v2/tabs/for_you?limit=40&cursor=` (undocumented) | opaque `cursor` from `_links.next.query_params.cursor`, else parsed from `href` | Elements filtered to `object_type: 'post'` (`elementCount` keeps the unfiltered count); a page of only non-post elements still pages on; 403/404 → friendly "not offered" state |
 | Likes | `GET /v2/user/likes?limit=20&before=` | `before` = `liked_timestamp` | `offset` max 1000, so prefer `before` |
 | Following | `GET /v2/user/following?limit=20&offset=` | `offset` | |
+| Notifications | `GET /v2/blog/{primary}/notifications?before=&types[]=` | `before` from `_links.next.query_params.before`, else parsed from `href` | `types[]` repeats, so it is put in the path (`apiFetch` query values are single); rows deduped by `id` |
 
 Stop condition: no next cursor (an empty page — For You: zero timeline *elements* — or no
 `_links.next`) or the cursor was already requested. Dedupe by item id across pages (Tumblr
@@ -207,7 +218,11 @@ of them — never a still.
   backoff (1s, 2s, 4s, max 3 retries) honouring `Retry-After`; 401 on authed
   call → attempt one token refresh then sign out; 404 → typed `NotFound`.
 - Budget: the consumer key allows 1000 calls/h. Explore preview strips are
-  limited to 10 tags × 1 call, cached 1 h.
+  limited to 10 tags × 1 call, cached 1 h. Explore suggestions: ≤ 15 `/blog/{name}/following`
+  calls (3 in flight, `['blog', name, 'following']`, 6 h, persisted) plus ≤ 4 extra
+  `/user/following` pages for exclusion (`['suggestedBlogs', user, …]`, 1 h); past 100
+  follows, only the shown rows (5, or ≤ 30 expanded) look up `/blog/{name}/info` (1 h); a
+  follow refetches only `['following']`.
 
 ## 7. Authentication
 
@@ -274,7 +289,7 @@ The secret is theirs, on their own device, so the direct exchange is fine in eve
    concurrent refreshes with a single in-flight promise.
 7. **Changing credentials**: saving new ones or "Remove credentials" signs out (tokens
    belong to the app that issued them) and drops the `blog`, `tagged`, `post`, `user`,
-   `dashboard`, `likes` and `following` queries.
+   `dashboard`, `likes`, `following` and `notifications` queries.
 8. `useSession()` exposes `{ status: 'guest'|'signedIn'|'loading', user, signIn, signOut }`.
 
 ## 8. Performance budget

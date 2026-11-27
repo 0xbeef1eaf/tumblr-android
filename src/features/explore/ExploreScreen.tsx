@@ -7,12 +7,13 @@ import { avatarUrl } from '@/api/endpoints/blog';
 import { useSession } from '@/features/auth';
 import { ConnectAppCard } from '@/features/credentials/ConnectAppCard';
 import { useApiKeyStatus } from '@/features/credentials/credentialsState';
-import { Pressable, Text } from '@/ui/primitives';
+import { Icon, Pressable, Text } from '@/ui/primitives';
 import { radius, spacing, useTheme } from '@/ui/theme';
 
 import { FollowingRow } from './FollowingRow';
 import { RecentChips } from './RecentChips';
 import { StarterTags } from './StarterTags';
+import { SuggestedBlogs } from './SuggestedBlogs';
 
 export const APP_NAME = 'Tumblr Gallery';
 
@@ -52,13 +53,31 @@ function HeaderAccount() {
   );
 }
 
+/** Search left the tab bar; this pill opens the `/search` stack screen (DESIGN §3.3). */
+function SearchEntry() {
+  const { colors } = useTheme();
+  const router = useRouter();
+  return (
+    <Pressable
+      onPress={() => router.push('/search')}
+      accessibilityLabel="Search tags and blogs"
+      testID="explore-search"
+      style={[styles.search, { backgroundColor: colors.surface }]}
+    >
+      <Icon name="search" size={18} tone="textSecondary" />
+      <Text tone="secondary">Search tags and blogs</Text>
+    </Pressable>
+  );
+}
+
 export interface ExploreScreenProps {
   /** Override the delay between starter-tag preview requests (tests). */
   previewStaggerMs?: number;
 }
 
 /**
- * Explore tab (`/`): recents, followed blogs and curated starter tags (DESIGN §3.1). Without a
+ * Explore tab (`/`): search entry, recents, followed blogs, blogs they follow and curated
+ * starter tags (DESIGN §3.1). Without a
  * consumer key the starter tags (which need `api_key`) give way to the "Connect" card.
  */
 export function ExploreScreen({ previewStaggerMs }: ExploreScreenProps) {
@@ -80,8 +99,10 @@ export function ExploreScreen({ previewStaggerMs }: ExploreScreenProps) {
           </Text>
           <HeaderAccount />
         </View>
+        <SearchEntry />
         <RecentChips />
         <FollowingRow />
+        <SuggestedBlogs />
         {apiKey.missing ? (
           <ConnectAppCard />
         ) : apiKey.hasApiKey ? (
@@ -114,6 +135,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatar: { width: 36, height: 36, borderRadius: 18 },
+  search: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.chip,
+  },
   section: { gap: spacing.sm },
   sectionTitle: { paddingHorizontal: spacing.md },
 });

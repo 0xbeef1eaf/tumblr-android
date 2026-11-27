@@ -36,16 +36,28 @@ function hasMedia(post: Post): boolean {
   return isNpfPost(post) && post.content.some((b) => b.type === 'image' || b.type === 'video');
 }
 
+/**
+ * The blog that made the original post: `reblogged_root_name` when Tumblr sends it, else the
+ * oldest reachable NPF trail entry. Undefined when the poster is the original author.
+ */
+export function originalPosterOf(post: Post): string | undefined {
+  const root =
+    post.reblogged_root_name ?? (isNpfPost(post) ? post.trail[0]?.blog?.name : undefined);
+  return root && root !== post.blog_name ? root : undefined;
+}
+
+const blogHref = (name: string) => `/blog/${encodeURIComponent(name)}`;
+
 function PostBody({ post, width }: { post: Post; width: number }) {
   const router = useRouter();
   const { colors } = useTheme();
   const mediaItems = useMemo(() => normalizePost(post), [post]);
-  const rootBlog = post.reblogged_root_name;
+  const rootBlog = originalPosterOf(post);
 
   return (
     <ScrollView contentContainerStyle={styles.scroll} testID="post-detail">
       <Pressable
-        onPress={() => router.push(`/blog/${post.blog_name}`)}
+        onPress={() => router.push(blogHref(post.blog_name))}
         accessibilityLabel={`Open blog ${post.blog_name}`}
         style={styles.header}
       >
@@ -59,6 +71,23 @@ function PostBody({ post, width }: { post: Post; width: number }) {
           </Text>
         </View>
       </Pressable>
+
+      {rootBlog ? (
+        <Pressable
+          onPress={() => router.push(blogHref(rootBlog))}
+          accessibilityLabel={`Open original poster's blog ${rootBlog}`}
+          testID="original-poster"
+          style={styles.original}
+        >
+          <Image source={{ uri: avatarUrl(rootBlog, 64) }} style={styles.originalAvatar} />
+          <Text variant="label" tone="secondary" numberOfLines={1} style={styles.flex}>
+            Original post by{' '}
+            <Text variant="label" style={{ color: colors.accent }}>
+              {rootBlog}
+            </Text>
+          </Text>
+        </Pressable>
+      ) : null}
 
       {isNpfPost(post) ? (
         <>
@@ -79,6 +108,7 @@ function PostBody({ post, width }: { post: Post; width: number }) {
             trail={post.trail}
             width={width}
             defaultExpanded={!hasMedia(post) && post.trail.length > 0}
+            onBlogPress={(name) => router.push(blogHref(name))}
           />
         </>
       ) : (
@@ -103,17 +133,6 @@ function PostBody({ post, width }: { post: Post; width: number }) {
           <Text variant="label" tone="secondary" testID="post-notes">
             {post.note_count.toLocaleString()} {post.note_count === 1 ? 'note' : 'notes'}
           </Text>
-        ) : null}
-        {rootBlog && rootBlog !== post.blog_name ? (
-          <Pressable
-            onPress={() => router.push(`/blog/${rootBlog}`)}
-            accessibilityLabel={`Source blog ${rootBlog}`}
-            noMinSize
-          >
-            <Text variant="label" style={{ color: colors.accent }}>
-              Source: {rootBlog}
-            </Text>
-          </Pressable>
         ) : null}
       </View>
     </ScrollView>
@@ -190,6 +209,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   avatar: { width: 40, height: 40, borderRadius: radius.chip },
+  original: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  originalAvatar: { width: 24, height: 24, borderRadius: 12 },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingHorizontal: spacing.lg },
   meta: { paddingHorizontal: spacing.lg, gap: spacing.xs },
 });

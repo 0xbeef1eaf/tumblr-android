@@ -44,3 +44,11 @@ export const BlogPostsResponseSchema = z.looseObject({
   _links: opt(LinksSchema),
 });
 export type BlogPostsResponse = z.infer<typeof BlogPostsResponseSchema>;
+
+/** `GET /v2/blog/{name}/following`: the blogs a blog publicly follows, most recent first. */
+export const BlogFollowingResponseSchema = z.looseObject({
+  blogs: lenientArray(BlogInfoSchema),
+  total_blogs: looseNumber.catch(0),
+  _links: opt(LinksSchema),
+});
+export type BlogFollowingResponse = z.infer<typeof BlogFollowingResponseSchema>;

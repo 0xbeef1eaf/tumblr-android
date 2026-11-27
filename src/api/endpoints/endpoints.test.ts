@@ -1,13 +1,13 @@
 import { http, HttpResponse } from 'msw';
 
 import blogPosts from '@/api/fixtures/blog.posts.npf.json';
-import { API, MISSING_BLOG, server } from '@/test/msw';
+import { API, MISSING_BLOG, PRIVATE_FOLLOWING_BLOG, server } from '@/test/msw';
 
 import { setTokenProvider } from '../client';
-import { NotFoundError } from '../errors';
+import { ApiError, NotFoundError } from '../errors';
 import { isNpfPost } from '../schemas/post';
 
-import { avatarUrl, getBlogInfo, getBlogPosts } from './blog';
+import { avatarUrl, getBlogFollowing, getBlogInfo, getBlogPosts } from './blog';
 import { getPost } from './posts';
 import { getTagged } from './tagged';
 import {
@@ -148,6 +148,32 @@ describe('OAuth endpoints', () => {
     const page = await getFollowing({ offset: 0 });
     expect(page.total_blogs).toBe(214);
     expect(page.blogs).toHaveLength(5);
+  });
+
+  it('getBlogFollowing sends bearer + paging and drops nameless blogs', async () => {
+    const requests = record('get', '/v2/blog/alpine-archive/following');
+    const page = await getBlogFollowing({ name: 'alpine-archive', offset: 20 });
+    const request = requests[0];
+    expect(request?.headers.get('authorization')).toBe('Bearer token');
+    expect(Object.fromEntries(new URL(request?.url ?? '').searchParams)).toEqual({
+      limit: '20',
+      offset: '20',
+    });
+    expect(page.total_blogs).toBe(87);
+    expect(page.blogs.map((b) => b.name)).toEqual([
+      'fernweh-frames',
+      'alpine-archive',
+      'quiet-concrete',
+      'pixelwanderer',
+      'moth-and-lamp',
+    ]);
+    expect(page.blogs[0]).toMatchObject({ title: 'Fernweh Frames', updated: 1761915600 });
+  });
+
+  it('getBlogFollowing → ApiError 403 when the blog hides who it follows', async () => {
+    const error = await getBlogFollowing({ name: PRIVATE_FOLLOWING_BLOG }).catch((e) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.status).toBe(403);
   });
 
   it.each([

@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
 
+import { setTokenProvider } from '@/api/client';
 import { credentialsStore } from '@/api/credentials';
 import { fixtures, API, server } from '@/test/msw';
 import { renderWithProviders } from '@/test/render';
@@ -14,7 +15,15 @@ const mockSignIn = jest.fn();
 const mockAuth: {
   status: 'guest' | 'signedIn' | 'loading';
   user: { name: string; primaryBlog?: string } | null;
-  useFollowing?: () => { blogs: { name: string }[] | undefined; isLoading: boolean };
+  useFollowing?: () => {
+    blogs: { name: string }[] | undefined;
+    total?: number;
+    isLoading: boolean;
+  };
+  useFollow?: (
+    name: string,
+    options?: { lookupInfo?: boolean },
+  ) => { isFollowing: boolean; toggle: () => void; isPending: boolean };
 } = { status: 'guest', user: null };
 
 jest.mock('expo-router', () => ({
@@ -26,6 +35,9 @@ jest.mock('@/features/auth', () => ({
   useSession: () => ({ status: mockAuth.status, user: mockAuth.user, signIn: mockSignIn }),
   get useFollowing() {
     return mockAuth.useFollowing;
+  },
+  get useFollow() {
+    return mockAuth.useFollow;
   },
 }));
 
@@ -44,8 +56,24 @@ beforeEach(() => {
   mockAuth.status = 'guest';
   mockAuth.user = null;
   mockAuth.useFollowing = undefined;
+  mockAuth.useFollow = undefined;
   useSearchHistoryStore.getState().clear();
 });
+afterEach(() => setTokenProvider(null));
+
+const FOLLOWED = [{ name: 'northlight-studio' }, { name: 'alpine-archive' }];
+
+/** Signed in, following FOLLOWED; every source serves blog.following.json. */
+function signInFollowing(blogs: { name: string }[] = FOLLOWED) {
+  mockAuth.status = 'signedIn';
+  mockAuth.user = { name: 'pixelwanderer', primaryBlog: 'pixelwanderer' };
+  mockAuth.useFollowing = () => ({ blogs, total: blogs.length, isLoading: false });
+  setTokenProvider({
+    getAccessToken: async () => 'token',
+    refresh: async () => null,
+    onAuthFailure: () => undefined,
+  });
+}
 
 describe('ExploreScreen', () => {
   it('renders the app name and all ten starter tags', async () => {
@@ -180,5 +208,125 @@ describe('ExploreScreen', () => {
     await waitFor(() => expect(requests.length).toBeGreaterThan(0));
     expect(new URL(requests[0] ?? '').searchParams.get('api_key')).toBe('mine');
     await waitFor(() => expect(requests).toHaveLength(10));
+  });
+
+  it('opens Search from the search pill', async () => {
+    await renderExplore(60_000);
+    await fireEvent.press(screen.getByTestId('explore-search'));
+    expect(mockPush).toHaveBeenCalledWith('/search');
+  });
+
+  it('suggests blogs that followed blogs follow, with who follows them', async () => {
+    signInFollowing();
+    await renderExplore(60_000);
+    const section = await screen.findByTestId('suggested-blogs');
+    expect(within(section).getByText('Blogs you might like')).toBeTruthy();
+    expect(within(section).getByText('Followed by blogs you follow')).toBeTruthy();
+    // alpine-archive is followed and pixelwanderer is the user's own blog.
+    expect(screen.queryByTestId('suggestion-alpine-archive')).toBeNull();
+    expect(screen.queryByTestId('suggestion-pixelwanderer')).toBeNull();
+    const row = screen.getByTestId('suggestion-fernweh-frames');
+    expect(within(row).getByText('Fernweh Frames')).toBeTruthy();
+    expect(within(row).getByText('Followed by northlight-studio, alpine-archive')).toBeTruthy();
+    expect(screen.getByTestId('suggestion-quiet-concrete')).toBeTruthy();
+    expect(screen.getByTestId('suggestion-moth-and-lamp')).toBeTruthy();
+    await fireEvent.press(within(row).getByLabelText(/^fernweh-frames\./));
+    expect(mockPush).toHaveBeenCalledWith('/blog/fernweh-frames');
+  });
+
+  it('follows inline without a per-row /info lookup', async () => {
+    signInFollowing();
+    const followed = new Set<string>();
+    const options: unknown[] = [];
+    mockAuth.useFollow = (name, opts) => {
+      options.push(opts);
+      return {
+        isFollowing: followed.has(name),
+        toggle: () => followed.add(name),
+        isPending: false,
+      };
+    };
+    await renderExplore(60_000);
+    await fireEvent.press(await screen.findByLabelText('Follow fernweh-frames'));
+    expect(followed.has('fernweh-frames')).toBe(true);
+    expect(options.every((o) => (o as { lookupInfo?: boolean }).lookupInfo === false)).toBe(true);
+  });
+
+  it('checks shown rows through blog info when the user follows more than the exclusion window', async () => {
+    signInFollowing();
+    mockAuth.useFollowing = () => ({ blogs: FOLLOWED, total: 500, isLoading: false });
+    const options: unknown[] = [];
+    // Stands in for useFollow's /info lookup reporting fernweh-frames as followed.
+    mockAuth.useFollow = (name, opts) => {
+      options.push(opts);
+      return {
+        isFollowing: name === 'fernweh-frames' && opts?.lookupInfo === true,
+        toggle: () => undefined,
+        isPending: false,
+      };
+    };
+    await renderExplore(60_000);
+    expect(await screen.findByLabelText('Unfollow fernweh-frames')).toBeTruthy();
+    expect(
+      within(screen.getByTestId('suggestion-fernweh-frames')).getByText('Following'),
+    ).toBeTruthy();
+    expect(options.length).toBeGreaterThan(0);
+    expect(options.every((o) => (o as { lookupInfo?: boolean }).lookupInfo === true)).toBe(true);
+  });
+
+  it('shows a skeleton while loading and nothing for guests or when no one is followed', async () => {
+    signInFollowing();
+    mockAuth.useFollowing = () => ({ blogs: undefined, isLoading: true });
+    const loading = await renderExplore(60_000);
+    expect(
+      within(screen.getByTestId('suggested-blogs')).getAllByTestId('skeleton', {
+        includeHiddenElements: true,
+      }),
+    ).toHaveLength(9);
+    await loading.unmount();
+
+    signInFollowing([]);
+    const empty = await renderExplore(60_000);
+    expect(screen.queryByTestId('suggested-blogs')).toBeNull();
+    await empty.unmount();
+
+    mockAuth.status = 'guest';
+    mockAuth.useFollowing = () => ({ blogs: FOLLOWED, isLoading: false });
+    await renderExplore(60_000);
+    expect(screen.queryByTestId('suggested-blogs')).toBeNull();
+  });
+
+  it('hides the section when every source hides its following list', async () => {
+    signInFollowing();
+    server.use(
+      http.get(`${API}/v2/blog/:blog/following`, () =>
+        HttpResponse.json({ meta: { status: 403, msg: 'Forbidden' } }, { status: 403 }),
+      ),
+    );
+    const { client } = await renderExplore(60_000);
+    await waitFor(() =>
+      expect(client.getQueryState(['blog', 'alpine-archive', 'following'])?.status).toBe('success'),
+    );
+    await waitFor(() => expect(screen.queryByTestId('suggested-blogs')).toBeNull());
+  });
+
+  it('shows five suggestions, then the rest on "Show more"', async () => {
+    signInFollowing();
+    server.use(
+      http.get(`${API}/v2/blog/:blog/following`, () =>
+        HttpResponse.json({
+          meta: { status: 200, msg: 'OK' },
+          response: {
+            total_blogs: 8,
+            blogs: Array.from({ length: 8 }, (_, i) => ({ name: `pick-${i}` })),
+          },
+        }),
+      ),
+    );
+    await renderExplore(60_000);
+    await screen.findByTestId('suggestion-pick-0');
+    expect(screen.queryByTestId('suggestion-pick-5')).toBeNull();
+    await fireEvent.press(screen.getByTestId('suggested-blogs-more'));
+    expect(screen.getByTestId('suggestion-pick-7')).toBeTruthy();
   });
 });

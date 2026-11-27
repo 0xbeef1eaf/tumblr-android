@@ -1,6 +1,8 @@
 import { http, HttpResponse, type HttpHandler, type JsonBodyType } from 'msw';
 
+import blogFollowing from '@/api/fixtures/blog.following.json';
 import blogInfo from '@/api/fixtures/blog.info.json';
+import notifications from '@/api/fixtures/blog.notifications.json';
 import blogPosts from '@/api/fixtures/blog.posts.npf.json';
 import error404 from '@/api/fixtures/error.404.json';
 import error429 from '@/api/fixtures/error.429.json';
@@ -20,6 +22,7 @@ const { setupServer } = require('msw/node') as MswNode;
 
 export const API = 'https://api.tumblr.com';
 export const fixtures = {
+  blogFollowing,
   blogInfo,
   blogPosts,
   error404,
@@ -31,6 +34,7 @@ export const fixtures = {
   following,
   userInfo,
   likes,
+  notifications,
 } as const;
 
 const ok = (body: JsonBodyType) => HttpResponse.json(body);
@@ -41,6 +45,9 @@ const empty = () => HttpResponse.json({ meta: { status: 200, msg: 'OK' }, respon
 /** A blog name that always 404s, for "blog not found" flows. */
 export const MISSING_BLOG = 'this-blog-does-not-exist';
 
+/** A blog that hides who it follows: `/following` answers 403. */
+export const PRIVATE_FOLLOWING_BLOG = 'keeps-follows-private';
+
 /** Default handlers: every endpoint the app calls, served from fixtures. */
 export const handlers: HttpHandler[] = [
   http.get(`${API}/v2/tagged`, () => ok(tagged)),
@@ -49,6 +56,13 @@ export const handlers: HttpHandler[] = [
   ),
   http.get(`${API}/v2/blog/:blog/posts`, ({ params }) =>
     params.blog === MISSING_BLOG ? notFound() : ok(blogPosts),
+  ),
+  http.get(`${API}/v2/blog/:blog/following`, ({ params }) =>
+    params.blog === MISSING_BLOG
+      ? notFound()
+      : params.blog === PRIVATE_FOLLOWING_BLOG
+        ? forbidden()
+        : ok(blogFollowing),
   ),
   http.get(`${API}/v2/blog/:blog/posts/:id`, ({ params }) => {
     const post = blogPosts.response.posts.find((p) => p.id_string === params.id);
@@ -67,10 +81,22 @@ export const handlers: HttpHandler[] = [
   http.post(`${API}/v2/user/follow`, empty),
   http.post(`${API}/v2/user/unfollow`, empty),
   http.post(`${API}/v2/oauth2/token`, () => HttpResponse.json(oauthToken)),
+  http.get(`${API}/v2/blog/:blog/notifications`, () => ok(notifications)),
 ];
 
 export function notFound() {
   return HttpResponse.json(error404, { status: 404 });
+}
+
+export function forbidden() {
+  return HttpResponse.json(
+    {
+      meta: { status: 403, msg: 'Forbidden' },
+      response: [],
+      errors: [{ title: 'Forbidden', code: 0 }],
+    },
+    { status: 403 },
+  );
 }
 
 export function rateLimited(retryAfterSec?: number) {

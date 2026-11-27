@@ -33,4 +33,22 @@ describe('TrailSection', () => {
     expect(screen.getByText('via second · 2 reblogs')).toBeTruthy();
     expect(screen.getAllByTestId('trail-item')).toHaveLength(2);
   });
+
+  it('makes trail blog names tappable when onBlogPress is given', async () => {
+    const [first] = trail;
+    if (!first) throw new Error('fixture has no trail');
+    const onBlogPress = jest.fn();
+    await renderWithProviders(
+      <TrailSection
+        trail={[first, { ...first, blog: undefined, broken_blog_name: 'gone' }]}
+        defaultExpanded
+        onBlogPress={onBlogPress}
+      />,
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Open blog alpine-archive' }));
+    expect(onBlogPress).toHaveBeenCalledWith('alpine-archive');
+    // A deactivated ("broken") blog has nowhere to go, so it stays plain text.
+    expect(screen.getByText('gone')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Open blog gone' })).toBeNull();
+  });
 });

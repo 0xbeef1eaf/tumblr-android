@@ -25,6 +25,7 @@ describe('navigation shell', () => {
   it.each([
     ['/dashboard', 'sign-in-prompt'],
     ['/for-you', 'sign-in-prompt'],
+    ['/notifications', 'sign-in-prompt'],
     ['/search', 'search-idle'],
     ['/likes', 'likes-guest-hint'],
     ['/settings', 'settings-screen'],
@@ -102,7 +103,7 @@ describe('navigation shell', () => {
     );
   });
 
-  const TAB_ORDER = ['Dashboard', 'For You', 'Search', 'Explore', 'Likes', 'Settings'];
+  const TAB_ORDER = ['Dashboard', 'For You', 'Notifications', 'Explore', 'Likes', 'Settings'];
   const tabLabels = () =>
     screen
       .getAllByRole('tab')
@@ -136,5 +137,34 @@ describe('navigation shell', () => {
     });
     expect(await screen.findByTestId('for-you-gallery')).toBeTruthy();
     expect(screen.queryByTestId('sign-in-prompt')).toBeNull();
+
+    await act(async () => {
+      router.navigate('/notifications');
+    });
+    expect(await screen.findByText('mossandstone started following you')).toBeTruthy();
+    expect(screen.queryByTestId('sign-in-prompt')).toBeNull();
+  });
+});
+
+describe('search stack screen', () => {
+  beforeEach(() => useAuthStore.getState().setGuest());
+
+  it('is no longer a tab, opens over the tabs at /search and goes back', async () => {
+    await renderRouter('./app', { initialUrl: '/' });
+    await act(async () => {
+      router.navigate('/');
+    });
+    expect(await screen.findByTestId('sign-in')).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: /Search/ })).toBeNull();
+    await act(async () => {
+      router.push('/search');
+    });
+    expect(await screen.findByTestId('search-idle')).toBeTruthy();
+    expect(screen).toHavePathname('/search');
+    await act(async () => {
+      router.back();
+    });
+    expect(await screen.findByTestId('sign-in')).toBeTruthy();
+    expect(screen).toHavePathname('/');
   });
 });

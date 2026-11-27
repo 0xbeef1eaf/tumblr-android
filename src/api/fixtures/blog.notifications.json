@@ -1,0 +1,107 @@
+{
+  "meta": {
+    "status": 200,
+    "msg": "OK"
+  },
+  "response": {
+    "notifications": [
+      {
+        "id": "n-1001",
+        "type": "like",
+        "timestamp": 1761990000,
+        "unread": true,
+        "target_post_id": "742388497658807856",
+        "target_post_summary": "Morning fog over the harbour",
+        "target_tumblelog_name": "pixelwanderer",
+        "target_tumblelog_uuid": "t:abc",
+        "target_post_type": "photo",
+        "target_media_url": "https://64.media.tumblr.com/fog/s75x75_c1/fog.jpg",
+        "from_tumblelog_name": "northlight-studio",
+        "from_tumblelog_uuid": "t:Hk3xQp0R9vXbL2mNcY7a1w",
+        "from_tumblelog_avatar": "https://64.media.tumblr.com/avatar_northlight_64.png",
+        "from_tumblelog_is_adult": false,
+        "followed": true
+      },
+      {
+        "id": "n-1002",
+        "type": "reblog_with_content",
+        "timestamp": 1761986400,
+        "unread": true,
+        "target_post_id": "742388497658807856",
+        "target_tumblelog_name": "pixelwanderer",
+        "target_post_type": "photo",
+        "target_media_url": "https://64.media.tumblr.com/fog/s75x75_c1/fog.jpg",
+        "from_tumblelog_name": "tiny-cat-daily",
+        "post_id": "742390000000000777",
+        "post_type": "photo",
+        "added_text": "this light is unreal",
+        "post_tags": ["fog", "harbour"],
+        "followed": false
+      },
+      {
+        "id": "n-1003",
+        "type": "reblog_naked",
+        "timestamp": 1761982800,
+        "target_post_id": "742388497658807856",
+        "target_tumblelog_name": "pixelwanderer",
+        "from_tumblelog_name": "quiet-frames",
+        "post_id": "742390000000000778"
+      },
+      {
+        "id": "n-1004",
+        "type": "reply",
+        "timestamp": 1761979200,
+        "target_post_id": "742388497658807857",
+        "target_tumblelog_name": "pixelwanderer",
+        "from_tumblelog_name": "harbourlights",
+        "reply_text": "Where was this taken?"
+      },
+      {
+        "id": "n-1005",
+        "type": "follow",
+        "timestamp": 1761975600,
+        "from_tumblelog_name": "mossandstone",
+        "from_tumblelog_avatar": "https://64.media.tumblr.com/avatar_moss_64.png",
+        "followed": false
+      },
+      {
+        "id": "n-1006",
+        "type": "ask",
+        "timestamp": 1761900000,
+        "target_tumblelog_name": "pixelwanderer",
+        "from_tumblelog_name": "curious-cat",
+        "is_anonymous": false
+      },
+      {
+        "id": "n-1007",
+        "type": "mention_in_post",
+        "timestamp": 1761800000,
+        "target_post_id": "742390000000000999",
+        "target_tumblelog_name": "film-diary",
+        "from_tumblelog_name": "film-diary"
+      },
+      {
+        "id": "n-1008",
+        "type": "some_future_type",
+        "timestamp": 1761700000,
+        "target_post_id": "742388497658807856",
+        "target_tumblelog_name": "pixelwanderer",
+        "from_tumblelog_name": "glitch-garden"
+      },
+      {
+        "type": "like",
+        "timestamp": 1761600000,
+        "from_tumblelog_name": "no-id-so-dropped"
+      }
+    ],
+    "_links": {
+      "next": {
+        "href": "/v2/blog/pixelwanderer/notifications?before=1761700000",
+        "method": "GET",
+        "query_params": {
+          "before": "1761700000"
+        }
+      }
+    }
+  }
+}
