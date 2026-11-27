@@ -134,7 +134,9 @@ root URL to `/dashboard`); Explore stays at `/`.
 
 ### 3.4 Tag gallery (`/tag/[tag]`)
 - Title `#tag`, follow-tag button is out of scope (no API). Share button.
-- Masonry gallery, paginated by `before` timestamp.
+- Masonry gallery. Signed in: `/v2/timeline/search` (recent), paged by its `_links.next`, so
+  mature posts appear when the account shows them; guests (and the fallback): `/v2/tagged`,
+  paginated by `before` timestamp (see API.md).
 - Filter row as in Search.
 
 ### 3.5 Blog (`/blog/[name]`)

@@ -15,7 +15,8 @@ Source: https://github.com/tumblr/docs (api.md, npf-spec.md), checked 2026-10-31
 
 | Use | Call | Auth |
 |---|---|---|
-| Tag gallery | `GET /v2/tagged?tag=&limit=20&before=&filter=text` | API key |
+| Tag gallery (guest) | `GET /v2/tagged?tag=&limit=20&before=&filter=text` — legacy; Tumblr says it returns intentionally partial results, and mature / community-labelled posts never appear | API key |
+| Tag gallery (signed in) | `GET /v2/timeline/search?query=&mode=recent&timeline_type=post&reblog_info=true&limit=20` → `{ timeline: { elements, _links.next } }`; next page = `_links.next` query. **Undocumented** (what tumblr.com searches with); honours the account's "Content you see" settings. 400/403/404 on a first page → `/v2/tagged` for the rest of the session | OAuth |
 | Blog info | `GET /v2/blog/{name}/info` (`?fields[blogs]=...` optional) | API key |
 | Blog avatar | `GET /v2/blog/{name}/avatar/128` → 301 to image; use URL directly in `<Image>` | None |
 | Blog posts | `GET /v2/blog/{name}/posts?npf=true&limit=20&before=&tag=&reblog_info=true` | API key |

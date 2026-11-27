@@ -52,7 +52,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /** Timeline elements can be posts or other objects (carousels, titles…); keep posts only. */
-function isPostElement(value: unknown): boolean {
+export function isPostElement(value: unknown): boolean {
   return isRecord(value) && (value.object_type === undefined || value.object_type === 'post');
 }
 

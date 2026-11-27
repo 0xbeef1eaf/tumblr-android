@@ -8,7 +8,15 @@ import { fx } from '@/domain/fixtures.testutil';
 import { API, server } from '@/test/msw';
 import { createTestQueryClient } from '@/test/render';
 
-import { taggedNextCursor, taggedPageCursor, useTaggedPosts } from './useTaggedPosts';
+import { setTokenProvider } from '@/api/client';
+import { resetAuthState, signInForTest } from '@/features/auth/auth.testutil';
+
+import {
+  resetTimelineSearchFallback,
+  taggedNextCursor,
+  taggedPageCursor,
+  useTaggedPosts,
+} from './useTaggedPosts';
 
 jest.mock('@/features/gallery', () => jest.requireActual('./galleryMock.testutil').galleryMock);
 
@@ -87,7 +95,7 @@ describe('useTaggedPosts', () => {
     // Page 1 is too short to fill the grid, so page 2 loads automatically.
     await waitFor(() => expect(result.current.items.some((i) => i.postId === 'older')).toBe(true));
     expect(requests[1]?.searchParams.get('before')).toBe('1761903000');
-    expect(client.getQueryState(['tagged', 'photography'])).toBeDefined();
+    expect(client.getQueryState(['tagged', 'photography', 'tagged'])).toBeDefined();
   });
 
   it('does not fetch for an empty tag', async () => {
@@ -99,5 +107,113 @@ describe('useTaggedPosts', () => {
     expect(result.current.items).toEqual([]);
     expect(client.getQueryCache().getAll()).toHaveLength(1);
     expect(result.current.isLoading).toBe(false);
+  });
+});
+
+describe('useTaggedPosts signed in (/v2/timeline/search)', () => {
+  const ok = (response: unknown) =>
+    HttpResponse.json({ meta: { status: 200, msg: 'OK' }, response });
+  const wrapperFor = () => {
+    const client = createTestQueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    return { client, wrapper };
+  };
+  const timeline = (posts: unknown[], next?: string) => ({
+    timeline: {
+      elements: [...posts, { object_type: 'blog_card' }],
+      _links: next ? { next: { href: `/v2/timeline/search?${next}` } } : undefined,
+    },
+  });
+
+  beforeEach(() => {
+    resetTimelineSearchFallback();
+    signInForTest();
+  });
+  afterEach(() => {
+    resetAuthState();
+    setTokenProvider(null);
+  });
+
+  it('searches with bearer auth and pages with the next link query', async () => {
+    const requests: { url: URL; auth: string | null }[] = [];
+    const page1 = fx.raw.tagged.response;
+    const page2 = [{ ...fx.raw.tagged.response[0], id_string: 'second-page' }];
+    server.use(
+      http.get(`${API}/v2/timeline/search`, ({ request }) => {
+        const url = new URL(request.url);
+        requests.push({ url, auth: request.headers.get('Authorization') });
+        return url.searchParams.has('cursor')
+          ? ok(timeline(page2))
+          : ok(timeline(page1, 'query=nsfw&mode=recent&cursor=abc%3D&api_key=leak'));
+      }),
+    );
+    const { client, wrapper } = wrapperFor();
+    const { result } = await renderHook(() => useTaggedPosts('nsfw'), { wrapper });
+
+    await waitFor(() =>
+      expect(result.current.items.some((i) => i.postId === 'second-page')).toBe(true),
+    );
+    const [first, second] = requests;
+    expect(first?.auth).toBe('Bearer test-token');
+    expect(Object.fromEntries(first?.url.searchParams ?? [])).toEqual({
+      query: 'nsfw',
+      mode: 'recent',
+      timeline_type: 'post',
+      reblog_info: 'true',
+      limit: '20',
+    });
+    expect(second?.url.searchParams.get('cursor')).toBe('abc=');
+    expect(second?.url.searchParams.has('api_key')).toBe(false);
+    expect(result.current.hasNextPage).toBe(false);
+    expect(client.getQueryState(['tagged', 'nsfw', 'search'])).toBeDefined();
+  });
+
+  it('falls back to /v2/tagged for the session when timeline search is refused', async () => {
+    let searchCalls = 0;
+    const tagged: URL[] = [];
+    server.use(
+      http.get(`${API}/v2/timeline/search`, () => {
+        searchCalls += 1;
+        return HttpResponse.json({ meta: { status: 403, msg: 'Forbidden' } }, { status: 403 });
+      }),
+      http.get(`${API}/v2/tagged`, ({ request }) => {
+        tagged.push(new URL(request.url));
+        return ok(fx.raw.tagged.response);
+      }),
+    );
+    const first = wrapperFor();
+    const { result } = await renderHook(() => useTaggedPosts('photography'), {
+      wrapper: first.wrapper,
+    });
+    await waitFor(() => expect(result.current.items.length).toBeGreaterThan(0));
+    expect(searchCalls).toBe(1);
+    expect(tagged[0]?.searchParams.get('tag')).toBe('photography');
+    // Later pages of the fallback page by `before`, as for guests.
+    await waitFor(() => expect(tagged.length).toBeGreaterThan(1));
+    expect(tagged[1]?.searchParams.get('before')).toBe('1761903000');
+
+    const second = wrapperFor();
+    const other = await renderHook(() => useTaggedPosts('cats'), { wrapper: second.wrapper });
+    await waitFor(() => expect(other.result.current.items.length).toBeGreaterThan(0));
+    expect(searchCalls).toBe(1);
+  });
+
+  it('surfaces other errors instead of falling back', async () => {
+    let taggedCalls = 0;
+    server.use(
+      http.get(`${API}/v2/timeline/search`, () =>
+        HttpResponse.json({ meta: { status: 500, msg: 'Oops' } }, { status: 500 }),
+      ),
+      http.get(`${API}/v2/tagged`, () => {
+        taggedCalls += 1;
+        return ok(fx.raw.tagged.response);
+      }),
+    );
+    const { wrapper } = wrapperFor();
+    const { result } = await renderHook(() => useTaggedPosts('photography'), { wrapper });
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+    expect(taggedCalls).toBe(0);
   });
 });
