@@ -1,0 +1,12 @@
+#!/bin/sh
+# Reject commits whose author or committer is not the project identity, and staged changes
+# that add a deny-listed string (see identity.sh).
+set -eu
+. "$(dirname "$0")/identity.sh"
+in_ci && exit 0
+
+check_ident AUTHOR
+check_ident COMMITTER
+
+hits=$(git diff --cached --no-color -U0 --diff-filter=ACMR | grep '^+' | grep -v '^+++' | denylist_hits)
+[ -z "$hits" ] || fail "Staged changes add deny-listed text:" $hits

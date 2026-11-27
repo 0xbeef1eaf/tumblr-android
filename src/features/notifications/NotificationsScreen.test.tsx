@@ -46,9 +46,25 @@ describe('notifications route', () => {
 
   it('renders a sentence per notification type for the primary blog', async () => {
     const urls = recordRequests();
+    // Hold the first response until the skeleton has been seen (a fast mock answer would
+    // replace it first); returning nothing falls through to the default fixture handler.
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get(
+        `${API}${PATH}`,
+        async () => {
+          await gate;
+        },
+        { once: true },
+      ),
+    );
     signInForTest();
     await renderWithProviders(<NotificationsRoute />);
     expect(screen.getByTestId('notifications-loading')).toBeTruthy();
+    release();
     expect(await screen.findByText('northlight-studio liked your post')).toBeTruthy();
     expect(screen.getByText('tiny-cat-daily reblogged your post')).toBeTruthy();
     expect(screen.getByText('“this light is unreal”')).toBeTruthy();

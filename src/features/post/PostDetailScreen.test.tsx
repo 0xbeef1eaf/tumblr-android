@@ -22,8 +22,21 @@ beforeEach(() => {
 
 describe('PostDetailScreen', () => {
   it('renders the fixture post: author, date, media, tags, notes and actions', async () => {
+    // Hold the response until the skeleton has been seen: a fast mock answer would otherwise
+    // replace it before the assertion runs. Returning nothing falls through to the default
+    // fixture handler.
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get(`${API}/v2/blog/:blog/posts/:id`, async () => {
+        await gate;
+      }),
+    );
     await renderWithProviders(<PostDetailScreen blog={BLOG} id={FIXTURE_IDS.rows} />);
     expect(screen.getByTestId('post-loading')).toBeTruthy();
+    release();
     await screen.findByTestId('post-detail');
 
     expect(screen.getByText(BLOG)).toBeTruthy();

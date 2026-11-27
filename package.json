@@ -71,6 +71,7 @@
     "format": "prettier --write .",
     "test": "jest",
     "test:watch": "jest --watch",
+    "prepare": "sh scripts/setup-git.sh --quiet",
     "export:android": "expo export --platform android"
   },
   "private": true,
