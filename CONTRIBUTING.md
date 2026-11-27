@@ -19,6 +19,22 @@ cp .env.example .env    # optional: all values are fallbacks (see README)
   body explaining the why when it is not obvious. Keep commits focused.
 - Open a pull request when ready. Maintainers integrate and push; do not force-push shared
   branches.
+- Commits in this repository are authored and committed as
+  `0xbeef1eaf <151461594+0xbeef1eaf@users.noreply.github.com>` only. `npm ci` / `npm install`
+  run `scripts/setup-git.sh` (the `prepare` script), which sets that identity, the push
+  credentials (a `gh` login in `~/.config/gh-0xbeef1eaf`, if present) and the hooks in
+  `.githooks/`:
+  - `pre-commit` rejects any other author or committer (including `GIT_AUTHOR_*` env vars and
+    `-c user.name=…` overrides);
+  - `commit-msg` strips `Co-Authored-By`, `Claude-Session` and `Signed-off-by` trailers;
+  - `pre-push` re-checks every outgoing commit (catching `--no-verify`) and only pushes to
+    `github.com/0xbeef1eaf/*`.
+
+  Strings that must never be committed (old names, for example) go in the untracked
+  `.git/info/identity-denylist`, one case-insensitive regex per line:
+  `sh scripts/setup-git.sh --deny 'pattern'`. The hooks are skipped in CI, where the release
+  workflow commits as `github-actions[bot]`.
+
 - Do not edit `package.json` or the lockfile casually. If a dependency is genuinely
   missing, add it with `npx expo install <pkg>` (so the version matches the SDK) and say so
   in the PR.
