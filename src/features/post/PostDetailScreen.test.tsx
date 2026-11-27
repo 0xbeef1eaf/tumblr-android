@@ -29,8 +29,9 @@ describe('PostDetailScreen', () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
+    // Signed out, the post comes from `/posts?id=` (signed in it would be `/posts/:id`).
     server.use(
-      http.get(`${API}/v2/blog/:blog/posts/:id`, async () => {
+      http.get(`${API}/v2/blog/:blog/posts`, async () => {
         await gate;
       }),
     );
