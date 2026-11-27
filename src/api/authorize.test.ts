@@ -36,9 +36,7 @@ describe('buildAuthorizeUrl', () => {
 
 describe('OAuth redirect URI', () => {
   it('is an https identifier Tumblr accepts as the default callback URL', () => {
-    expect(OAUTH_REDIRECT_URI).toBe(
-      'https://0xbeef1eaf.github.io/tumblr-android/auth/callback',
-    );
+    expect(OAUTH_REDIRECT_URI).toBe('https://0xbeef1eaf.github.io/tumblr-android/auth/callback');
     expect(getOAuthRedirectUri(baseEnv)).toBe(OAUTH_REDIRECT_URI);
   });
 
