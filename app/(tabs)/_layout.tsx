@@ -47,8 +47,11 @@ export default function TabsLayout() {
         options={{ title: 'For You', tabBarIcon: tabIcon('sparkles-outline', 'sparkles') }}
       />
       <Tabs.Screen
-        name="search"
-        options={{ title: 'Search', tabBarIcon: tabIcon('search-outline', 'search') }}
+        name="notifications"
+        options={{
+          title: 'Notifications',
+          tabBarIcon: tabIcon('notifications-outline', 'notifications'),
+        }}
       />
       <Tabs.Screen
         name="index"

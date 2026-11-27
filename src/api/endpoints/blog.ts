@@ -1,7 +1,9 @@
 import { API_BASE_URL, apiFetch } from '../client';
 import {
+  BlogFollowingResponseSchema,
   BlogInfoResponseSchema,
   BlogPostsResponseSchema,
+  type BlogFollowingResponse,
   type BlogInfo,
   type BlogPostsResponse,
 } from '../schemas/blog';
@@ -44,6 +46,31 @@ export function getBlogPosts({
     query: { npf: true, reblog_info: true, limit, before, tag, offset },
     auth: 'auto',
     schema: BlogPostsResponseSchema,
+    signal,
+  });
+}
+
+export interface GetBlogFollowingParams {
+  name: string;
+  offset?: number;
+  limit?: number;
+  signal?: AbortSignal;
+}
+
+/**
+ * `GET /v2/blog/{name}/following?limit=&offset=` (OAuth): the blogs `name` publicly follows,
+ * most recently followed first. Blogs that hide the list answer an error (usually 403).
+ */
+export function getBlogFollowing({
+  name,
+  offset,
+  limit = 20,
+  signal,
+}: GetBlogFollowingParams): Promise<BlogFollowingResponse> {
+  return apiFetch(`${blogPath(name)}/following`, {
+    query: { limit, offset },
+    auth: 'bearer',
+    schema: BlogFollowingResponseSchema,
     signal,
   });
 }

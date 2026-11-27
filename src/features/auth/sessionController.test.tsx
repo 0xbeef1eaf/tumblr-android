@@ -216,6 +216,8 @@ describe('signOut', () => {
       'likes',
       'user',
       'following',
+      'suggestedBlogs',
+      'notifications',
       'tagged',
       'blog',
       'post',

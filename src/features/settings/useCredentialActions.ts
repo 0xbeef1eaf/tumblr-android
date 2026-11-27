@@ -15,6 +15,8 @@ export const CREDENTIAL_SCOPED_QUERY_ROOTS = [
   'dashboard',
   'likes',
   'following',
+  'suggestedBlogs',
+  'notifications',
 ] as const;
 
 const scoped = (query: { queryKey: readonly unknown[] }) =>

@@ -15,7 +15,7 @@ export { LikesScreen } from './LikesScreen';
 export { SignInPrompt, type SignInPromptProps } from './SignInPrompt';
 export { SignInScreen } from './SignInScreen';
 export { useDashboard } from './useDashboard';
-export { useFollow, type FollowState } from './useFollow';
+export { useFollow, type FollowOptions, type FollowState } from './useFollow';
 export { useFollowing, type FollowingResult } from './useFollowing';
 export { useForYou } from './useForYou';
 export { useEnsureLiked, useIsLiked, useLike, useToggleLike, type LikeState } from './useLike';

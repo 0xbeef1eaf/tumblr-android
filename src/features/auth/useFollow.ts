@@ -16,6 +16,15 @@ export interface FollowState {
   isPending: boolean;
 }
 
+export interface FollowOptions {
+  /**
+   * Fetch `/blog/{name}/info` for its `followed` flag when the blog is not in the loaded
+   * following list (default true). Lists of many blogs known not to be followed (Explore
+   * suggestions) pass false to save one call per row.
+   */
+  lookupInfo?: boolean;
+}
+
 /** Tumblr's follow endpoints take a blog URL. */
 const blogUrl = (name: string): string => {
   const bare = followKey(name);
@@ -27,7 +36,10 @@ const blogUrl = (name: string): string => {
  * `followed` flag; toggling is optimistic and invalidates `['following']`.
  * Guests get a "sign in" nudge instead.
  */
-export function useFollow(blogName: string): FollowState {
+export function useFollow(
+  blogName: string,
+  { lookupInfo = true }: FollowOptions = {},
+): FollowState {
   const queryClient = useQueryClient();
   const signedIn = useAuthStore((s) => s.status === 'signedIn');
   const key = followKey(blogName);
@@ -36,7 +48,7 @@ export function useFollow(blogName: string): FollowState {
   const info = useQuery({
     queryKey: ['blog', blogName, 'info'],
     queryFn: ({ signal }) => getBlogInfo(blogName, signal),
-    enabled: signedIn && blogName.length > 0,
+    enabled: signedIn && lookupInfo && blogName.length > 0,
     staleTime: HOUR,
   });
 

@@ -25,9 +25,11 @@ Source: https://github.com/tumblr/docs (api.md, npf-spec.md), checked 2026-10-31
 | For You | `GET /v2/tabs/for_you?limit=40&cursor=` → `{ timeline: { elements: Post[], _links.next } }` — **undocumented, used by official clients; may stop working** (403/404 → "not offered to third-party apps" state) | OAuth |
 | Likes | `GET /v2/user/likes?limit=20&before=` → `liked_posts`, `liked_count` | OAuth |
 | Following | `GET /v2/user/following?limit=20&offset=` → `blogs`, `total_blogs` | OAuth |
+| Blog following | `GET /v2/blog/{name}/following?limit=20&offset=` → `blogs` (`name`, `title`, `description`, `url`, `uuid`, `updated`), `total_blogs`; the blog's public list, most recent first. Blogs that hide it answer 403 (treated as an empty list). Explore suggestions (DESIGN §3.1) | OAuth |
 | Like / unlike | `POST /v2/user/like` / `unlike` body `{id, reblog_key}` | OAuth |
 | Follow / unfollow | `POST /v2/user/follow` / `unfollow` body `{url}` | OAuth |
 | Reblog | `POST /v2/blog/{myblog}/posts` body `{parent_tumblelog_uuid, parent_post_id, reblog_key, content?, tags?}` → 201 | OAuth |
+| Notifications | `GET /v2/blog/{myblog}/notifications?before=&types[]=` → `notifications[]` (`id`, `type`, `timestamp`, `unread`, `from_tumblelog_*`, `target_post_id`, `target_tumblelog_name`, `target_media_url`, `added_text`, `reply_text`, …), `_links.next.query_params.before`; `myblog` must be the user's own (primary) blog; documented `types[]`: `like`, `reply`, `follow`, `mention_in_reply`, `mention_in_post`, `reblog_naked`, `reblog_with_content`, `ask`, `answered_ask`, `new_group_blog_member`, `post_attribution`, `post_flagged`, `post_appeal_accepted`, `post_appeal_rejected`, `what_you_missed`, `conversational_note`; unknown `type`s are kept and shown generically | OAuth |
 
 Not available: full-text post search, following tags. Search is therefore tag
 search plus direct blog lookup.
@@ -75,6 +77,8 @@ Common legacy fields: `id_string`, `blog_name`, `blog: { name, uuid }`, `reblog_
 ## Fixtures to record (hand-authored if no key is available)
 `src/api/fixtures/`: `tagged.photography.json` (legacy photo + photoset + video + text),
 `blog.posts.npf.json` (image, photoset w/ rows, native video, youtube video, reblog with
-trail-only media, text-only), `blog.info.json`, `user.info.json`, `user.dashboard.json`,
+trail-only media, text-only), `blog.info.json`, `blog.following.json` (hand-built: new,
+already-followed, own and nameless entries), `user.info.json`, `user.dashboard.json`,
 `user.likes.json`, `user.following.json`, `tabs.for_you.json` (hand-built from the dashboard
-posts plus a non-post `title` element), `oauth.token.json`, `error.429.json`, `error.404.json`.
+posts plus a non-post `title` element), `blog.notifications.json` (hand-built: one of each
+common type, an unknown type and an item without `id`), `oauth.token.json`, `error.429.json`, `error.404.json`.

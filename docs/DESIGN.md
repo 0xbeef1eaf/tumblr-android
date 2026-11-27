@@ -2,8 +2,8 @@
 
 A mobile-first, gallery-style Tumblr client. The app treats Tumblr as a stream of
 images, GIFs and video rather than a text feed: every surface is a masonry grid of
-media, and every piece of media opens into a full-screen viewer. Search is a
-first-class tab.
+media, and every piece of media opens into a full-screen viewer. Search (tags and
+blogs) opens from Explore.
 
 Target: Android first (project name is `tumblr-android`), iOS kept working via Expo.
 
@@ -27,10 +27,11 @@ Root (expo-router)
 ├── (tabs)
 │   ├── dashboard    Dashboard — initial tab; media from followed blogs (guest: sign-in prompt)
 │   ├── for-you      For You   — Tumblr's recommendations (guest: sign-in prompt)
-│   ├── search       Search    — query → tag results / blog jump
-│   ├── index        Explore   — starter tags, recent searches, followed blogs (if signed in)
+│   ├── notifications Notifications — activity on the primary blog (guest: sign-in prompt)
+│   ├── index        Explore   — search entry, starter tags, recent searches; signed in: followed blogs + "Blogs you might like"
 │   ├── likes        Likes     — signed-in: /user/likes; guest: local bookmarks
 │   └── settings     Settings  — account, grid density, safe mode, cache
+├── search                 Search — query → tag results / blog jump (opened from Explore)
 ├── tag/[tag]              Gallery for a tag (also reached from a tag chip)
 ├── blog/[name]            Blog header + gallery, optional in-blog tag filter
 ├── post/[blog]/[id]       Post detail: all media, caption, tags, notes, actions
@@ -38,9 +39,10 @@ Root (expo-router)
 └── auth/sign-in           Tumblr sign-in page in an in-app WebView (modal)
 ```
 
-Tabs, in order: Dashboard, For You, Search, Explore, Likes, Settings (icons `albums`,
-`sparkles`, `search`, `compass`, `heart`, `settings`). All are always visible; Dashboard and
-For You show a sign-in prompt to guests. A plain launch opens Dashboard
+Tabs, in order: Dashboard, For You, Notifications, Explore, Likes, Settings (icons `albums`,
+`sparkles`, `notifications`, `compass`, `heart`, `settings`). All are always visible; Dashboard,
+For You and Notifications show a sign-in prompt to guests. Search is not a tab: it is a stack
+screen at `/search` (header with back) opened from Explore. A plain launch opens Dashboard
 (`unstable_settings.initialRouteName` plus `app/+native-intent.ts`, which sends the launcher's
 root URL to `/dashboard`); Explore stays at `/`.
 
@@ -48,11 +50,26 @@ root URL to `/dashboard`); Explore stays at `/`.
 
 ### 3.1 Explore (`/`)
 - Header: app name, sign-in button (guest) or avatar (signed in).
+- Search pill "Search tags and blogs" under the header → `/search` (§3.3).
 - Section "Recent": horizontally scrolling chips of last 10 searches/tags.
 - Section "Start here": curated starter tags (`photography`, `illustration`,
   `architecture`, `gif`, `nature`, `fashion`, `art`, `design`, `cats`, `space`).
   Each chip shows a 3-up preview strip fetched lazily from `/tagged`.
 - Signed in: section "Following" — avatar row of followed blogs → `blog/[name]`.
+- Signed in: section "Blogs you might like" (subtitle "Followed by blogs you follow"),
+  right after Following — who the blogs you follow follow. Built from the public
+  `/blog/{name}/following` first page of the 15 most recently followed blogs (3 requests
+  at a time; blogs that hide their list add nothing). Blogs you already follow (the first
+  100 of your following list) and your own blogs are left out; past 100 followed blogs,
+  each shown row checks `/blog/{name}/info` and reads "Following" if it is already
+  followed. Nothing is shown until that exclusion list has loaded (skeleton meanwhile), so
+  rows never appear and then vanish. The rest are ranked by how many of those blogs follow
+  them, then by latest post, top 30. Rows: avatar, name, title (1 line), "Followed by
+  alice, bob +3", Follow button; row → `blog/[name]`. Five rows, then "Show N more". A row
+  followed here stays, showing "Following" (tap again to undo). The sources are fixed while
+  the screen is open, so following someone does not reshuffle the list. Lists are cached
+  6 h per blog (1 h for the ranking). Skeleton rows while loading; hidden for guests and
+  when there is nothing to suggest.
 - **Onboarding** (no consumer key in Settings and none built in): "Start here" is
   replaced by a card — key icon, "Connect your Tumblr app", one line explaining that
   the app uses the user's own Tumblr app, and an "Open Settings" action
@@ -76,8 +93,36 @@ root URL to `/dashboard`); Explore stays at `/`.
 - Guests: sign-in prompt. 403/404 from Tumblr: "Tumblr doesn't offer this feed to
   third-party apps right now" with a "Go to Dashboard" button. Other errors: retry message.
 
+### 3.2c Notifications (`/notifications`, auth)
+- List of activity on the signed-in user's primary blog from
+  `GET /v2/blog/{primary}/notifications` (API.md), newest first.
+- Row: unread dot, from-blog avatar (`from_tumblelog_avatar`, else the avatar endpoint),
+  sentence with the blog name in bold — "**alice** liked your post", "reblogged your post"
+  (with the added text quoted), "replied: “…”", "started following you", "sent you an ask",
+  "answered your ask", "mentioned you", "credited you in a post", "joined your group blog",
+  "replied in a conversation"; moderation notices (`post_flagged`, `post_appeal_*`) and
+  `what_you_missed` read as from "Tumblr". Unknown types read "interacted with your post"
+  when about a post, "has new activity for you" when only the sender is known, else "You
+  have a new notification" — the age ("5m", "3h", "2d", "4w", then a date) and a
+  thumbnail of your post when Tumblr sends one. Anonymous asks show "Anonymous".
+- Tap: a new follower opens their blog; anything about a post opens
+  `/post/{target_tumblelog_name}/{target_post_id}`; otherwise the other blog. Tapping the
+  avatar opens the other blog.
+- Filter chips: All · Mentions · Reblogs · Replies · Follows · Likes (server-side `types[]`:
+  `mention_in_reply`+`mention_in_post`, `reblog_naked`+`reblog_with_content`, `reply`,
+  `follow`, `like`).
+- Pull to refresh (first page only, as on Dashboard); infinite scroll with the `before`
+  cursor from `_links.next`.
+- States: guests get the sign-in prompt; skeleton rows while loading; "No notifications
+  yet" (with a filter: "No mentions yet" etc. and a "Show all" action); a failed later page
+  keeps the list and shows "Couldn't load more · Try again" at the end; 403 → "Tumblr
+  didn't allow this app to read your blog's notifications"; other errors → retry message; an
+  account without a blog → "No blog to show".
+
 ### 3.3 Search (`/search`)
-- Search bar auto-focused on tab open; debounced 300 ms.
+- A stack screen over the tabs (title "Search", back returns to Explore), opened from the
+  search entry on Explore; not a tab. Deep links to `/search` still work.
+- Search bar auto-focused each time the screen opens; debounced 300 ms.
 - While typing: suggestions list
   - "Tag: #query" (always first)
   - "Blog: query.tumblr.com" (shown when query looks like a blog name: `[a-z0-9-]{1,32}`)
@@ -222,5 +267,5 @@ root URL to `/dashboard`); Explore stays at `/`.
 
 ## 8. Out of scope (v1)
 
-Posting new content, asks, messaging, notifications, communities, text-post
-reading beyond captions, following tags, multi-account.
+Posting new content, asks, messaging, communities, text-post reading beyond captions,
+following tags, multi-account. Notifications are read-only (no marking as read, no replying).
