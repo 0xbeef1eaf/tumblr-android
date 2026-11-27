@@ -63,6 +63,24 @@ describe('PostDetailScreen', () => {
     expect(screen.getAllByTestId('npf-image').length).toBeGreaterThan(0);
   });
 
+  it("links a reblog to the original poster's blog and each trail entry to its blog", async () => {
+    await renderWithProviders(<PostDetailScreen blog={BLOG} id={FIXTURE_IDS.trailOnly} />);
+    await screen.findByTestId('post-detail');
+    await fireEvent.press(
+      screen.getByRole('button', { name: "Open original poster's blog alpine-archive" }),
+    );
+    expect(mockPush).toHaveBeenLastCalledWith('/blog/alpine-archive');
+    mockPush.mockClear();
+    await fireEvent.press(screen.getByRole('button', { name: 'Open blog alpine-archive' }));
+    expect(mockPush).toHaveBeenLastCalledWith('/blog/alpine-archive');
+  });
+
+  it('shows no original-poster link on an original post', async () => {
+    await renderWithProviders(<PostDetailScreen blog={BLOG} id={FIXTURE_IDS.rows} />);
+    await screen.findByTestId('post-detail');
+    expect(screen.queryByTestId('original-poster')).toBeNull();
+  });
+
   it('keeps the trail collapsed when the post has its own media', async () => {
     await renderWithProviders(<PostDetailScreen blog={BLOG} id={FIXTURE_IDS.singleImage} />);
     await screen.findByTestId('post-detail');

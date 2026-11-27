@@ -12,13 +12,36 @@ export interface TrailSectionProps {
   width?: number;
   /** Start expanded (e.g. when the post's own content has no media, only the trail does). */
   defaultExpanded?: boolean;
+  /** Called with a trail entry's blog name when it is tapped (omitted: names are plain text). */
+  onBlogPress?: (name: string) => void;
 }
 
 const nameOf = (item: NpfTrailItem): string =>
   item.blog?.name ?? item.broken_blog_name ?? 'unknown';
 
+function TrailBlogLink({ name, onPress }: { name: string; onPress: (name: string) => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={() => onPress(name)}
+      accessibilityLabel={`Open blog ${name}`}
+      noMinSize
+      style={styles.itemName}
+    >
+      <Text variant="label" style={{ color: colors.accent }}>
+        {name}
+      </Text>
+    </Pressable>
+  );
+}
+
 /** Reblog trail: collapsed to "via blogname"; expand to read each earlier contribution. */
-export function TrailSection({ trail, width, defaultExpanded = false }: TrailSectionProps) {
+export function TrailSection({
+  trail,
+  width,
+  defaultExpanded = false,
+  onBlogPress,
+}: TrailSectionProps) {
   const { colors } = useTheme();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const last = trail.at(-1);
@@ -48,9 +71,13 @@ export function TrailSection({ trail, width, defaultExpanded = false }: TrailSec
               style={[styles.item, { borderLeftColor: colors.border }]}
               testID="trail-item"
             >
-              <Text variant="label" style={styles.itemName}>
-                {nameOf(item)}
-              </Text>
+              {item.blog?.name && onBlogPress ? (
+                <TrailBlogLink name={item.blog.name} onPress={onBlogPress} />
+              ) : (
+                <Text variant="label" style={styles.itemName}>
+                  {nameOf(item)}
+                </Text>
+              )}
               <NpfRenderer content={item.content} layout={item.layout} width={width} />
             </View>
           ))
